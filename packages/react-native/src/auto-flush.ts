@@ -17,7 +17,7 @@
  * people the truth: on iOS, what is waiting is sent the next time the app is
  * open with a connection.
  */
-import { createFlushScheduler, type FlushReport, type Outbox } from "@holdsend/core";
+import { createFlushScheduler, type FlushReport, type FlushScheduler, type Outbox } from "@holdsend/core";
 
 /** Stops a listener started by `onConnectivityChange` or `onForeground`. */
 export type Unsubscribe = () => void;
@@ -33,10 +33,11 @@ export interface NativeAutoFlushOptions {
   onError?: (err: unknown) => void;
 }
 
-export interface NativeAutoFlusher {
-  kick(): void;
-  stop(): void;
-}
+/**
+ * What `startNativeAutoFlush` returns: `kick()` and `stop()`.
+ * @deprecated Use `FlushScheduler` from `@holdsend/core`, the same shape. This name stays until 2.0.
+ */
+export type NativeAutoFlusher = FlushScheduler;
 
 export function startNativeAutoFlush<P>(outbox: Outbox<P>, options: NativeAutoFlushOptions = {}): NativeAutoFlusher {
   let connected = true;

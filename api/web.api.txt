@@ -17,10 +17,7 @@ interface AutoFlushOptions {
 }
 
 // AutoFlusher
-interface AutoFlusher {
-    kick(): void;
-    stop(): void;
-}
+type AutoFlusher = FlushScheduler;
 
 // BackgroundSupport
 type BackgroundSupport = "background" | "open_app";

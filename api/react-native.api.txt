@@ -60,10 +60,7 @@ interface NativeAutoFlushOptions {
 }
 
 // NativeAutoFlusher
-interface NativeAutoFlusher {
-    kick(): void;
-    stop(): void;
-}
+type NativeAutoFlusher = FlushScheduler;
 
 // OutboxTooLargeError
 class OutboxTooLargeError extends Error {

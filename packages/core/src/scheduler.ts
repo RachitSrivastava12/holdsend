@@ -32,8 +32,14 @@ export interface SchedulerOptions {
   onError?: (err: unknown) => void;
 }
 
+/**
+ * Something that sends in the background and can be nudged or stopped. The
+ * web and React Native auto-flush helpers return this same shape.
+ */
 export interface FlushScheduler {
+  /** Ask for a pass soon (several kicks close together become one pass). */
   kick(): void;
+  /** Stops listening and cancels any scheduled pass. */
   stop(): void;
 }
 

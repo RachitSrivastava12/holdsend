@@ -4,7 +4,7 @@
 
 HoldSend is a small open-source library for apps where people write things that must not be lost: posts, reports, field notes, messages. It keeps what a person writes on the device while there is no connection, and publishes it once when the connection returns. Not zero times. Not twice. Even when answers get lost, someone taps twice, two tabs are open, or the app is killed halfway through a send.
 
-> **Status: early (0.2).** The core, the server store, and the web and React Native stores are published on npm and tested, including a fault-injection suite and three independent audits (see [docs/audits](docs/audits)). The API may change before 1.0, the emergency module is new in 0.2, the two-device draft helpers are early (finished for 0.3), and nothing here is ready for production. This README will say so until it is. See [docs/STATUS.md](docs/STATUS.md).
+> **Status: early (0.2).** The core, the server store, and the web and React Native stores are published on npm and tested, including a fault-injection suite and three independent audits (see [docs/audits](docs/audits)). The API may change before 1.0, the emergency module is new in 0.2, the two-device draft helpers are early (finished for 0.3), and nothing here is ready for production. This README will say so until it is. See [docs/STATUS.md](docs/STATUS.md), and [before you ship](docs/production.md) for the checklist and what 1.0 still needs.
 
 Docs: https://zyakuhq.github.io/holdsend/
 

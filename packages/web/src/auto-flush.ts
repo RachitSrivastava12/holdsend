@@ -4,7 +4,7 @@
  * back (`online`), when the tab becomes visible, and on a backoff while items
  * keep failing or another tab holds the sender lock.
  */
-import { createFlushScheduler, type FlushReport, type Outbox } from "@holdsend/core";
+import { createFlushScheduler, type FlushReport, type FlushScheduler, type Outbox } from "@holdsend/core";
 import { SenderLock } from "./sender-lock.js";
 
 export interface AutoFlushOptions {
@@ -22,12 +22,11 @@ export interface AutoFlushOptions {
   onError?: (err: unknown) => void;
 }
 
-export interface AutoFlusher {
-  /** Ask for a pass soon (coalesced). */
-  kick(): void;
-  /** Stops listening and cancels any scheduled pass. */
-  stop(): void;
-}
+/**
+ * What `startAutoFlush` returns: `kick()` and `stop()`.
+ * @deprecated Use `FlushScheduler` from `@holdsend/core`, the same shape. This name stays until 2.0.
+ */
+export type AutoFlusher = FlushScheduler;
 
 function defaultIsOnline(): boolean {
   const nav = (globalThis as { navigator?: { onLine?: boolean } }).navigator;

@@ -2,10 +2,11 @@
 
 The project's working memory. Every work session reads this first and updates it last.
 
-Last updated: 2026-11-14 (API review for 1.0 proposed; type-only fixes merged)
+Last updated: 2026-11-15 (path to 1.0: production checklist, non-breaking API items)
 
 ## Done
 
+- Path to 1.0 (2026-11-15): [before you ship](production.md), a checklist per package and the four gates before the README may say ready for production. Non-breaking items of decision 0013 done: `AutoFlusher` and `NativeAutoFlusher` are deprecated aliases of `FlushScheduler`, the library's bookkeeping fields and `ItemState`/`ItemStatus` say how to use them, and protocol.md describes the stored item format with its 1.x promise.
 - API review for 1.0 (2026-11-14, [#64](https://github.com/zyakuhq/holdsend/pull/64), [decision 0013](decisions/0013-api-review-for-1.0.md), proposed): read the whole 0.2.0 record. Fixed now, types only: `PoolLike` and `Unsubscribe` exported, `EmergencyOutbox.send` has an explicit return type, draft parameters named, and the API check fails on any type that points into an internal file. Proposed for 1.0: one kick/stop type, a freeze-or-exclude rule for drafts, a smaller `DraftState`, doc comments on the library's own `OutboxItem` fields, better docs for `ItemState` and `ItemStatus`. Not reviewed by a separate agent (no run-time code changed).
 - Public API record (2026-11-13, [#62](https://github.com/zyakuhq/holdsend/pull/62), [decision 0012](decisions/0012-api-record.md)): `scripts/api-surface.mjs` writes every entry point's declarations, plus the unexported types they refer to, to `api/*.api.txt`; `npm run check` and CI fail when the build differs. Phase 4 groundwork. Not reviewed by a separate agent (tooling only, no package code).
 - **0.2.0 published to npm (2026-11-13)**: all four packages, through trusted publishing and staged publishing, after the project lead's approvals (GitHub `npm-release`, then npm with a security key, core first). A manual dry-run of the Release workflow ran first. Checked by installing all four from npm in an empty folder and running `scripts/smoke-node.mjs` on Node 20.0.0 and 22; `npm audit signatures` verified the attestations of all four.
@@ -61,10 +62,12 @@ Last updated: 2026-11-14 (API review for 1.0 proposed; type-only fixes merged)
 
 ## Next tasks
 
-1. Show HN, now that 0.2.0 is out, after the project lead's yes (draft kept out of the repo).
-2. Check the SMS links on a real iPhone and a real Android phone (one recipient and several). Needs a person with the phones; until then the guide says to test on the phones your people use.
-3. Phase 4: do the non-breaking parts of [decision 0013](decisions/0013-api-review-for-1.0.md) (alias `AutoFlusher` and `NativeAutoFlusher` to `FlushScheduler`, doc comments on `OutboxItem` fields and on `ItemState`/`ItemStatus`, the stored item format in protocol.md); leave the breaking items for the freeze.
-4. Phase 3: prove the Expo example's background task on Android with a development build (phone or emulator), and a check on a real low-end Android phone (the laptop measurements are in [low-end.md](low-end.md)). Before 0.3: `@holdsend/server` must depend on a core release with `./drafts`.
+The four gates to 1.0 are in [production.md](production.md#what-10-needs-before-the-readme-changes). In order:
+
+1. Decide the open items of [decision 0013](decisions/0013-api-review-for-1.0.md) (drafts inside or outside the 1.0 promise, `DraftState.log`), make the breaking ones in 0.3, and write the migration guide from 0.2.
+2. An Android emulator job in CI that installs the Expo example and runs its background task. Real phones for the SMS links need a person (the project lead): a test page with the links is to be prepared.
+3. Final audit by reviewers who did not write the code, then 1.0.0 after the project lead's go-ahead and two approvals.
+4. At least one app outside this repository on a release (Show HN, after the project lead's yes, is the way to find one).
 
 ## After that
 

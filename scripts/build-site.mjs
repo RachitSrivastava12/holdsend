@@ -37,6 +37,7 @@ export const PAGES = [
   [
     "How it works",
     [
+      ["Before you ship", "docs/production.md"],
       ["Wire protocol", "docs/protocol.md"],
       ["Emergency messages", "docs/emergency.md"],
       ["One draft on two devices", "docs/drafts.md"],

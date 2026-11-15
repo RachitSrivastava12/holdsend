@@ -81,3 +81,16 @@ A browser client on another origin needs CORS to allow `Idempotency-Key` and `Wr
 A bad value never fails the request. The item is stored without a written time.
 
 **Order feeds by arrival time. Never by written time.** The written time comes from a device clock nobody can check.
+
+## The stored item format
+
+What a `Store` keeps on the device is a JSON array of `OutboxItem` objects (see `packages/core/src/types.ts`). A custom store must save each item exactly as it gets it and return it unchanged: no field renamed, dropped or converted.
+
+| Field | Set by | Meaning |
+| --- | --- | --- |
+| `key`, `kind`, `payload`, `owner`, `writtenAt` | the app, through `add()` | What to send, for whom, and when it was written. `payload` is plain JSON. |
+| `held`, `askBy` | the app, through `add()` options | The item waits for a person, or asks after a time. |
+| `state`, `attempts`, `stuckReason`, `lastError`, `sentAt`, `approvedAt`, `retryAt` | the library | Where the item is and why. Read them; do not write them. |
+| `touched`, `claimedAt`, `claimToken`, `failures`, `noAnswerSince`, `timeouts` | the library | Bookkeeping for claims, retries and timeouts. Never set or change them. |
+
+Promise for 1.x: a 1.x release only adds optional fields to this format and never renames or removes one, so a queue saved by any 1.x version is read correctly by every later 1.x version. A change that needs a migration of saved queues waits for 2.0 and comes with that migration.

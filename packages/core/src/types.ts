@@ -3,7 +3,11 @@
  * stored as JSON in any backend (IndexedDB, AsyncStorage, MMKV, a file).
  */
 
-/** Where an item is in its life. */
+/**
+ * Where an item is in its life, as stored. To decide what to show a person,
+ * use `ItemStatus` (from `statusOf` or `list()`), which also says when an
+ * item waits for the person.
+ */
 export type ItemState =
   /** Kept on the device, will be sent when allowed. */
   | "waiting"
@@ -63,11 +67,12 @@ export interface OutboxItem<P = unknown> {
   /**
    * True once any attempt has started. Never reset. An item that may have
    * reached the server can no longer be cancelled, only finished.
+   * Kept by the library: a store saves it unchanged and an app never sets it.
    */
   touched: boolean;
-  /** Set while state is "sending": when the claim was taken or last renewed. */
+  /** Set while state is "sending": when the claim was taken or last renewed. Kept by the library: store it unchanged. */
   claimedAt?: number;
-  /** Set while state is "sending": identifies the sender holding the claim. */
+  /** Set while state is "sending": identifies the sender holding the claim. Kept by the library: store it unchanged. */
   claimToken?: string;
   /** When a person approved sending an item that needed confirmation. */
   approvedAt?: number;
@@ -88,11 +93,11 @@ export interface OutboxItem<P = unknown> {
   sentAt?: number;
   /** Earliest time the next automatic attempt may start (backoff after a failed attempt). */
   retryAt?: number;
-  /** Failed attempts in a row, answered or not; sets the backoff. */
+  /** Failed attempts in a row, answered or not; sets the backoff. Kept by the library: store it unchanged. */
   failures?: number;
-  /** When the current run of attempts with no answer began. Cleared by any answer. */
+  /** When the current run of attempts with no answer began. Cleared by any answer. Kept by the library: store it unchanged. */
   noAnswerSince?: number;
-  /** Attempts abandoned at the timeout in a row; each doubles the next timeout. */
+  /** Attempts abandoned at the timeout in a row; each doubles the next timeout. Kept by the library: store it unchanged. */
   timeouts?: number;
 }
 
@@ -203,7 +208,10 @@ export type AttemptOutcome =
   /** The server refused the request itself. Final until a person retries. */
   | { type: "refused"; error?: ItemError };
 
-/** What the outbox shows a person for one item. */
+/**
+ * What to show a person for one item, worked out from the stored `ItemState`,
+ * the time and the policy. Use this, not `ItemState`, in screens.
+ */
 export type ItemStatus =
   /** Will be sent when there is a connection. Can be cancelled. */
   | "waiting"
