@@ -1,6 +1,6 @@
 # 0013: What 1.0 should rename, merge or remove
 
-Date: 2026-11-14. Status: proposed. To be accepted, changed or rejected before the 1.0 API freeze (Phase 4).
+Date: 2026-11-14. Status: accepted. Items 1, 4 and 5 done on 2026-11-15; items 2 and 3 settled by [decision 0015](0015-drafts-and-the-1.0-promise.md).
 
 ## Context
 
@@ -37,4 +37,4 @@ These change only type declarations, not what any function does or returns at ru
 ## Not decided here
 
 - Whether the core's 5,120-byte size budget moves for 1.0. Item 1 and the doc comments in item 4 add no run-time code.
-- The migration guide. It will be written from this list once the items above are accepted or rejected.
+- The migration guide: [upgrading.md](../upgrading.md), from 0.2 to 0.3.

@@ -80,8 +80,8 @@ describe("readDraft scenarios", () => {
   it("a retried update (same id) counts once", () => {
     const a = u(1, null);
     const s = readDraft([a, { ...a, rev: 2 }, a], D);
-    expect(s.count).toBe(1);
-    expect(s.repeats).toBe(2);
+    expect(s.log.count).toBe(1);
+    expect(s.log.repeats).toBe(2);
     expect(s.conflicted).toBe(false);
   });
 
@@ -99,7 +99,7 @@ describe("readDraft scenarios", () => {
     const c = u(3, 3);
     const d = u(4, 1, { resolves: ["nope"] });
     const s = readDraft([a, b, c, d], D);
-    expect(s.dangling.length).toBe(4);
+    expect(s.log.dangling.length).toBe(4);
     // a (rev 1, bad base), b (rev 2, base rev 5 is later) and c (rev 3, base is itself) are loose;
     // d (rev 4) rests on a.
     expect(s.heads.map((h) => h.id).sort()).toEqual([b.id, c.id, d.id].sort());
@@ -129,7 +129,7 @@ describe("readDraft scenarios", () => {
     const b = u(3, 2);
     const log = [a, again, b];
     const s = readDraft(log, D);
-    expect(s.dangling.length).toBe(1);
+    expect(s.log.dangling.length).toBe(1);
     expect(s.heads.map((h) => h.id)).toEqual([a.id, b.id]);
     expect(ancestorsOf(log, b.id).map((x) => x.id)).toEqual([b.id]);
   });
@@ -146,7 +146,7 @@ describe("readDraft scenarios", () => {
     const y = u(3, 1, { id: "y", resolves: ["x"] });
     const s = readDraft([a, x, y], D);
     expect(s.heads.map((h) => h.id)).toEqual(["y"]);
-    expect(s.dangling).toEqual([{ id: "x", ref: "y" }]);
+    expect(s.log.dangling).toEqual([{ id: "x", ref: "y" }]);
   });
 
   it("ignores other drafts and the order of the input", () => {
@@ -247,8 +247,8 @@ describe("no edit is silently lost (fault injection)", () => {
         const sim = simulate(acts);
         const s = read(sim.log, D);
         // Every accepted edit is counted once, retries do not add copies.
-        expect(s.count).toBe(sim.ids.length);
-        expect(s.repeats).toBe(sim.log.length - sim.ids.length);
+        expect(s.log.count).toBe(sim.ids.length);
+        expect(s.log.repeats).toBe(sim.log.length - sim.ids.length);
         // The open heads are exactly the true heads: no edit hidden, none invented.
         expect(s.heads.map((h) => h.id).sort()).toEqual(trueHeads(sim));
         expect(s.conflicted).toBe(trueHeads(sim).length > 1);
@@ -278,7 +278,7 @@ describe("no edit is silently lost (fault injection)", () => {
   it("fails for a reader that counts a retry as a second edit", () => {
     const dup: typeof readDraft<string> = (log, draftId) => {
       const s = readDraft(log, draftId);
-      return { ...s, count: s.count + s.repeats, repeats: 0 };
+      return { ...s, log: { ...s.log, count: s.log.count + s.log.repeats, repeats: 0 } };
     };
     expect(() => run(dup)).toThrow();
   });

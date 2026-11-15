@@ -4,6 +4,7 @@ All notable changes to the `@holdsend` packages. All four packages share one ver
 
 ## Unreleased
 
+- **Breaking (drafts, early API):** `DraftState` keeps only what a screen acts on. `count`, `repeats` and `dangling` moved under `log` (type `DraftLogInfo`): `state.count` is now `state.log.count`. Applies to `readDraft` and `readDraftState`. Decision 0015, which also sets when drafts join the 1.0 promise. Edits listed in docs/upgrading.md.
 - Every item that has left the device without a confirmed outcome says why, in `lastAttempt`: `"no_answer"` (no HTTP answer, a timeout, or a sender that died mid-send; it may already be on the server, and the next try uses the same key), `"server_busy"` (408, 429, 5xx and similar; retried with backoff) or `"refused"` (any other 4xx, or a key that holds different content). It is for display only, never used to decide whether to send, and is cleared on delivery and when a person retries. See docs/protocol.md.
 - `outbox.sendNow(owner)`: the person's "Send now". One pass over the same queue, with the same items and the same keys, without waiting for the backoff of earlier failures.
 - The core's size budget is 5.25 KB (decision 0014).

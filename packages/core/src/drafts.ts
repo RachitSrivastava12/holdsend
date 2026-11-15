@@ -46,6 +46,12 @@ export interface DraftState<T = unknown> {
   unresolved: DraftUpdate<T>[];
   /** The ids of every update read. */
   ids: ReadonlySet<string>;
+  /** Diagnostics about the log, for logs and tests rather than screens. */
+  log: DraftLogInfo;
+}
+
+/** What `readDraft` noticed about the log itself. Moved out of the top of `DraftState` in 0.3 (decision 0015). */
+export interface DraftLogInfo {
   /** Updates read, after dropping repeats of an id. */
   count: number;
   /** Updates dropped because an earlier one had the same id (a retry). */
@@ -114,9 +120,7 @@ export function readDraft<T = unknown>(log: Iterable<DraftUpdate<T>>, draftId?: 
     latest: heads.length ? heads[heads.length - 1]! : null,
     unresolved: conflicted ? heads : [],
     ids: new Set(ix.byId.keys()),
-    count: ix.byId.size,
-    repeats: ix.repeats,
-    dangling,
+    log: { count: ix.byId.size, repeats: ix.repeats, dangling },
   };
 }
 

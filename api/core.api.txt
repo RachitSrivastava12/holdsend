@@ -334,6 +334,16 @@ interface DraftLinks {
     resolves?: string[];
 }
 
+// DraftLogInfo
+interface DraftLogInfo {
+    count: number;
+    repeats: number;
+    dangling: {
+        id: string;
+        ref: string;
+    }[];
+}
+
 // DraftState
 interface DraftState<T = unknown> {
     conflicted: boolean;
@@ -341,12 +351,7 @@ interface DraftState<T = unknown> {
     latest: DraftUpdate<T> | null;
     unresolved: DraftUpdate<T>[];
     ids: ReadonlySet<string>;
-    count: number;
-    repeats: number;
-    dangling: {
-        id: string;
-        ref: string;
-    }[];
+    log: DraftLogInfo;
 }
 
 // DraftUpdate
