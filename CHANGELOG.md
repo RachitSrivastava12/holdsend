@@ -4,6 +4,9 @@ All notable changes to the `@holdsend` packages. All four packages share one ver
 
 ## Unreleased
 
+- `AutoFlusher` (web) and `NativeAutoFlusher` (React Native) are now type aliases of `FlushScheduler` from `@holdsend/core`, the same shape, and are marked deprecated. Existing code keeps working; the old names stay until 2.0.
+- The library's bookkeeping fields on `OutboxItem`, and `ItemState` and `ItemStatus`, say in their doc comments how to use them. docs/protocol.md describes the stored item format and what 1.x promises about it.
+- docs/production.md: a checklist per package before you ship, and what 1.0 still needs.
 - Types only, nothing changes at run time: `@holdsend/server` exports `PoolLike` (the argument of `pgPoolTransaction`) and `@holdsend/react-native` exports `Unsubscribe`; `EmergencyOutbox.send` declares `Promise<RetryResult>` instead of a type that named an internal file; `AcceptDraftUpdateOptions.headers` is written as `HeaderSource | undefined` (the same type). The API record check now fails on any type that points into an internal file. Proposed changes for 1.0: docs/decisions/0013-api-review-for-1.0.md.
 - The public TypeScript API of every entry point is recorded in `api/*.api.txt`; `npm run check` and CI fail when it changes without the record being updated, so every API change shows up in review. No package code changed.
 
