@@ -65,7 +65,7 @@ Last updated: 2026-11-15 (path to 1.0: production checklist, non-breaking API it
 The four gates to 1.0 are in [production.md](production.md#what-10-needs-before-the-readme-changes). In order:
 
 1. Decide the open items of [decision 0013](decisions/0013-api-review-for-1.0.md) (drafts inside or outside the 1.0 promise, `DraftState.log`), make the breaking ones in 0.3, and write the migration guide from 0.2.
-2. An Android emulator job in CI that installs the Expo example and runs its background task. Real phones for the SMS links need a person (the project lead): a test page with the links is to be prepared.
+2. An Android emulator job in CI that installs the Expo example and runs its background task. Real phones for the SMS links: the [SMS link check](tools/sms-check.html) page is on the docs site (2026-11-15); the project lead runs it on an iPhone and an Android phone and pastes the result.
 3. Final audit by reviewers who did not write the code, then 1.0.0 after the project lead's go-ahead and two approvals.
 4. At least one app outside this repository on a release (Show HN, after the project lead's yes, is the way to find one).
 

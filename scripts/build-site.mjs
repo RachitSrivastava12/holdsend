@@ -6,7 +6,7 @@
 // Every page is a Markdown file listed in PAGES. Links between them become
 // links between pages; links to anything else in the repo go to GitHub.
 import { existsSync, statSync } from "node:fs";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, normalize, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Marked } from "marked";
@@ -103,6 +103,8 @@ export function rewriteLink(href, source, published) {
   if (path === "") return href;
   const target = posix.normalize(posix.join(posix.dirname(source), path)).replace(/\/$/, "");
   if (target.startsWith("..")) return href;
+  // A standalone page under docs/tools is copied to the same path on the site.
+  if (/^docs\/tools\/[^/]+\.html$/.test(target)) return `${posix.relative(posix.dirname(outputPath(source)), target)}${anchor}`;
   const candidates = [target, `${target}/README.md`];
   for (const candidate of candidates) {
     if (published.has(candidate)) {
@@ -165,6 +167,12 @@ export async function buildSite(outDir) {
   await mkdir(outDir, { recursive: true });
   await writeFile(join(outDir, "style.css"), STYLE);
   await writeFile(join(outDir, ".nojekyll"), "");
+  // Standalone pages (such as the SMS link check) are copied as they are.
+  const tools = join(ROOT, "docs", "tools");
+  for (const name of (await readdir(tools)).filter((n) => n.endsWith(".html"))) {
+    await mkdir(join(outDir, "docs", "tools"), { recursive: true });
+    await writeFile(join(outDir, "docs", "tools", name), await readFile(join(tools, name)));
+  }
   const written = [];
 
   for (const [, items] of PAGES) {
