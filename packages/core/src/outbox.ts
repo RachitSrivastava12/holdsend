@@ -233,6 +233,19 @@ export class Outbox<P = unknown> {
   }
 
   /**
+   * A person pressed "Send now": one pass over the same queue, with the same
+   * items and the same keys, without waiting for the backoff of items that
+   * failed before. Items that wait for a person (stuck, or needing
+   * confirmation) still wait for `retry()` or `approve()`.
+   */
+  async sendNow(owner?: string): Promise<FlushReport> {
+    await this.store.update((items) => {
+      for (const i of items) if (i.state === "waiting" && (owner === undefined || i.owner === owner)) delete i.retryAt;
+    });
+    return this.flush(owner);
+  }
+
+  /**
    * Sends everything sendable (for `owner`, if given; every owner otherwise).
    * Only one flush runs at a time per Outbox. Flushes asked for while one
    * runs are queued, each owner once, and run before the returned promise

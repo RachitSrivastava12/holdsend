@@ -18,6 +18,23 @@ export type ItemState =
   /** Automatic sending stopped. Needs a person to retry or discard. */
   | "stuck";
 
+/**
+ * Why the last attempt of an item did not end in a confirmed delivery.
+ * For display only: the outbox never uses it to decide whether to send.
+ * "No connection" is not here: that is the device's state now, not the item's.
+ */
+export type AttemptReason =
+  /**
+   * No HTTP answer: the network failed, the attempt timed out, or a sender
+   * died in the middle. The item may already exist on the server; the next
+   * try uses the same key, so the server answers instead of creating it again.
+   */
+  | "no_answer"
+  /** The server answered "not now" (408, 429, 5xx, a short-lived auth error, or still busy with this key). Retried automatically with backoff. */
+  | "server_busy"
+  /** The server refused the request (any other 4xx), or holds different content under this key. Retrying the same request will not help. */
+  | "refused";
+
 /** Why an item became stuck, in machine-readable form. */
 export type StuckReason =
   /** Every automatic attempt was used and none got a definite answer. */
@@ -89,6 +106,12 @@ export interface OutboxItem<P = unknown> {
   askBy?: number;
   stuckReason?: StuckReason;
   lastError?: ItemError;
+  /**
+   * Why the last attempt did not end in a confirmed delivery, when it did
+   * not. Kept by the library for display; cleared on delivery and when a
+   * person retries. Never used to decide whether to send.
+   */
+  lastAttempt?: AttemptReason;
   /** When the server confirmed it (epoch ms, device clock). */
   sentAt?: number;
   /** Earliest time the next automatic attempt may start (backoff after a failed attempt). */

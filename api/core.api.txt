@@ -29,6 +29,9 @@ type AttemptOutcome = {
     error?: ItemError;
 };
 
+// AttemptReason
+type AttemptReason = "no_answer" | "server_busy" | "refused";
+
 // CancelResult
 type CancelResult = "cancelled" | "in_flight" | "not_found";
 
@@ -109,6 +112,7 @@ class Outbox<P = unknown> {
     discard(key: string): Promise<DiscardResult>;
     isDurable(): Promise<boolean>;
     subscribe(listener: () => void): () => void;
+    sendNow(owner?: string): Promise<FlushReport>;
     flush(owner?: string): Promise<FlushReport>;
 }
 
@@ -135,6 +139,7 @@ interface OutboxItem<P = unknown> {
     askBy?: number;
     stuckReason?: StuckReason;
     lastError?: ItemError;
+    lastAttempt?: AttemptReason;
     sentAt?: number;
     retryAt?: number;
     failures?: number;
