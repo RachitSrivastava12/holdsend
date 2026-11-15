@@ -95,7 +95,7 @@ export function outputPath(source) {
 export function slugify(text, seen = new Map()) {
   const base = text
     .toLowerCase()
-    .replace(/<[^>]*>/g, "")
+    // Everything but letters, digits, spaces, "_" and "-" goes, so no markup can reach the id.
     .replace(/[^\p{L}\p{N}\s_-]/gu, "")
     .trim()
     .replace(/\s/g, "-");
