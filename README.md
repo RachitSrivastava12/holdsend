@@ -4,7 +4,7 @@
 
 HoldSend is a small open-source library for apps where people write things that must not be lost: posts, reports, field notes, messages. It keeps what a person writes on the device while there is no connection, and publishes it once when the connection returns. Not zero times. Not twice. Even when answers get lost, someone taps twice, two tabs are open, or the app is killed halfway through a send.
 
-> **Status: early (0.2).** The core, the server store, and the web and React Native stores are published on npm and tested, including a fault-injection suite and three independent audits (see [docs/audits](docs/audits)). The API may change before 1.0, the emergency module is new in 0.2, the two-device draft helpers are early (finished for 0.3), and nothing here is ready for production. This README will say so until it is. See [docs/STATUS.md](docs/STATUS.md), and [before you ship](docs/production.md) for the checklist and what 1.0 still needs.
+> **Status: early (0.2).** The core, the server store, and the web and React Native stores are published on npm (0.2.0) and tested, including a fault-injection suite and independent audits and reviews of every phase (see [docs/audits](docs/audits)). The API may change before 1.0, the emergency module is new in 0.2, the two-device draft helpers are early (finished for 0.3), and nothing here is ready for production. This README will say so until it is. See [docs/STATUS.md](docs/STATUS.md), and [before you ship](docs/production.md) for the checklist and what 1.0 still needs.
 
 Docs: https://zyakuhq.github.io/holdsend/
 
@@ -29,10 +29,10 @@ Networks fail at the worst moments: in a flood, at a protest, on a train, in a v
 
 | Package | What | State |
 | --- | --- | --- |
-| [`@holdsend/core`](packages/core) | Outbox state machine, keys, written-time rules, wire protocol, flush scheduler. No runtime dependencies. | 0.2 on npm |
-| [`@holdsend/server`](packages/server) | Idempotency store for Postgres and memory, and a framework-agnostic request handler | 0.2 on npm |
-| [`@holdsend/web`](packages/web) | IndexedDB store, one sender across tabs, auto-flush, Background Sync helpers | 0.2 on npm |
-| [`@holdsend/react-native`](packages/react-native) | AsyncStorage and MMKV store, auto-flush wired to NetInfo and AppState | 0.2 on npm |
+| [`@holdsend/core`](packages/core) | Outbox state machine, keys, written-time rules, wire protocol, flush scheduler. No runtime dependencies. | 0.2.0 on npm. Unit tests and a fault-injection suite on Node 20 and later. |
+| [`@holdsend/server`](packages/server) | Idempotency store for Postgres and memory, and a framework-agnostic request handler | 0.2.0 on npm. The key and the result are written in one transaction and a retry gets the original answer; tested against a real Postgres server in CI, including races on the same key. |
+| [`@holdsend/web`](packages/web) | IndexedDB store, one sender across tabs, auto-flush, Background Sync helpers | 0.2.0 on npm. Browser tests run in Chromium only; Safari and Firefox are not tested in CI. |
+| [`@holdsend/react-native`](packages/react-native) | AsyncStorage and MMKV store, auto-flush wired to NetInfo and AppState | 0.2.0 on npm. Unit tests, and the Expo example's web build in a browser. Not yet run on a real phone or an emulator in CI. |
 | Emergency module (`@holdsend/core/emergency`) | Its own queue, the first message sent by itself and later ones on the person's say-so, repeated taps as one message, background sending where possible, SMS hand-off ([guide](docs/emergency.md)) | New in 0.2 |
 
 How it is tested: [docs/testing.md](docs/testing.md).

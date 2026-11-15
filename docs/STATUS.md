@@ -2,10 +2,11 @@
 
 The project's working memory. Every work session reads this first and updates it last.
 
-Last updated: 2026-11-15 (path to 1.0: production checklist, non-breaking API items)
+Last updated: 2026-11-15 (lastAttempt and sendNow, from a review; README status per package)
 
 ## Done
 
+- From an outside review (2026-11-15): `lastAttempt` on every item that left the device without a confirmed outcome (`no_answer`, `server_busy`, `refused`; display only), `outbox.sendNow()` with a test where the first answer is lost after the server created the item (same key twice, one item created), and the README table says per package what is tested and where. The core budget moved to 5.25 KB ([decision 0014](decisions/0014-core-budget-5.25kb.md)). The review's request for a Postgres idempotency store was already met in 0.1.0.
 - Path to 1.0 (2026-11-15): [before you ship](production.md), a checklist per package and the four gates before the README may say ready for production. Non-breaking items of decision 0013 done: `AutoFlusher` and `NativeAutoFlusher` are deprecated aliases of `FlushScheduler`, the library's bookkeeping fields and `ItemState`/`ItemStatus` say how to use them, and protocol.md describes the stored item format with its 1.x promise.
 - API review for 1.0 (2026-11-14, [#64](https://github.com/zyakuhq/holdsend/pull/64), [decision 0013](decisions/0013-api-review-for-1.0.md), proposed): read the whole 0.2.0 record. Fixed now, types only: `PoolLike` and `Unsubscribe` exported, `EmergencyOutbox.send` has an explicit return type, draft parameters named, and the API check fails on any type that points into an internal file. Proposed for 1.0: one kick/stop type, a freeze-or-exclude rule for drafts, a smaller `DraftState`, doc comments on the library's own `OutboxItem` fields, better docs for `ItemState` and `ItemStatus`. Not reviewed by a separate agent (no run-time code changed).
 - Public API record (2026-11-13, [#62](https://github.com/zyakuhq/holdsend/pull/62), [decision 0012](decisions/0012-api-record.md)): `scripts/api-surface.mjs` writes every entry point's declarations, plus the unexported types they refer to, to `api/*.api.txt`; `npm run check` and CI fail when the build differs. Phase 4 groundwork. Not reviewed by a separate agent (tooling only, no package code).
@@ -58,7 +59,7 @@ Last updated: 2026-11-15 (path to 1.0: production checklist, non-breaking API it
 
 - Phase 3 design note for one draft on two devices: [decision 0009](decisions/0009-two-device-drafts.md), proposed, no code yet (2026-11-03).
 
-- Phase 2, the emergency module (v0.2): code, docs, example and audit done. The core is at 5,113 of its 5,120-byte budget: new core features need a budget decision or must live in a subpath.
+- Phase 2, the emergency module (v0.2): code, docs, example and audit done. The core is at 5,216 of its 5,376-byte budget (decision 0014).
 
 ## Next tasks
 

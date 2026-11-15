@@ -4,6 +4,9 @@ All notable changes to the `@holdsend` packages. All four packages share one ver
 
 ## Unreleased
 
+- Every item that has left the device without a confirmed outcome says why, in `lastAttempt`: `"no_answer"` (no HTTP answer, a timeout, or a sender that died mid-send; it may already be on the server, and the next try uses the same key), `"server_busy"` (408, 429, 5xx and similar; retried with backoff) or `"refused"` (any other 4xx, or a key that holds different content). It is for display only, never used to decide whether to send, and is cleared on delivery and when a person retries. See docs/protocol.md.
+- `outbox.sendNow(owner)`: the person's "Send now". One pass over the same queue, with the same items and the same keys, without waiting for the backoff of earlier failures.
+- The core's size budget is 5.25 KB (decision 0014).
 - `AutoFlusher` (web) and `NativeAutoFlusher` (React Native) are now type aliases of `FlushScheduler` from `@holdsend/core`, the same shape, and are marked deprecated. Existing code keeps working; the old names stay until 2.0.
 - The library's bookkeeping fields on `OutboxItem`, and `ItemState` and `ItemStatus`, say in their doc comments how to use them. docs/protocol.md describes the stored item format and what 1.x promises about it.
 - docs/production.md: a checklist per package before you ship, and what 1.0 still needs.

@@ -90,7 +90,21 @@ What a `Store` keeps on the device is a JSON array of `OutboxItem` objects (see 
 | --- | --- | --- |
 | `key`, `kind`, `payload`, `owner`, `writtenAt` | the app, through `add()` | What to send, for whom, and when it was written. `payload` is plain JSON. |
 | `held`, `askBy` | the app, through `add()` options | The item waits for a person, or asks after a time. |
-| `state`, `attempts`, `stuckReason`, `lastError`, `sentAt`, `approvedAt`, `retryAt` | the library | Where the item is and why. Read them; do not write them. |
+| `state`, `attempts`, `stuckReason`, `lastError`, `lastAttempt`, `sentAt`, `approvedAt`, `retryAt` | the library | Where the item is and why. Read them; do not write them. |
 | `touched`, `claimedAt`, `claimToken`, `failures`, `noAnswerSince`, `timeouts` | the library | Bookkeeping for claims, retries and timeouts. Never set or change them. |
+
+### Why the last attempt did not finish
+
+`lastAttempt` says why an item that has left the device has no confirmed outcome yet. It is stored from the item's last attempt, for display only: the outbox never reads it to decide whether to send.
+
+| Value | What happened | What the person can be told |
+| --- | --- | --- |
+| `"no_answer"` | No HTTP answer: the network failed, the attempt timed out, or a sender died in the middle (another sender took the item over). | It may already be on the server. The next try uses the same key, so the server answers with the original instead of creating a second copy. |
+| `"server_busy"` | The server answered "not now": 408, 429 or 5xx (also 401, 403 and 425, which may change by themselves, and 409 `in_progress` while the server is still working on this key). | It is retried automatically, with growing waits. |
+| `"refused"` | The server refused the request: any other 4xx, or 409 `key_conflict` (the key holds different content). | Sending the same request again will not help. The item is stuck until a person retries or discards it. |
+
+"No connection" is not a value: it is the device's state right now, not something about the item, so read it from the platform when you draw the screen. `lastAttempt` is cleared when the item is delivered and when a person retries it.
+
+`outbox.sendNow(owner)` is the person's "Send now": one pass over the same queue, with the same items and the same keys, without waiting for the backoff of earlier failures. Items that wait for a person (stuck, or needing confirmation) still need `retry()` or `approve()`.
 
 Promise for 1.x: a 1.x release only adds optional fields to this format and never renames or removes one, so a queue saved by any 1.x version is read correctly by every later 1.x version. A change that needs a migration of saved queues waits for 2.0 and comes with that migration.

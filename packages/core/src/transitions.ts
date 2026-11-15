@@ -110,6 +110,8 @@ export function claim<P>(
 ): OutboxItem<P> | null {
   const item = find(items, key);
   if (!item || !isSendable(item, now, policy, owner)) return null;
+  // Taking over a claim nobody renewed: its sender died mid-send, with no answer.
+  if (item.state === "sending") item.lastAttempt = "no_answer";
   item.state = "sending";
   item.claimedAt = now;
   item.claimToken = token;
@@ -145,12 +147,14 @@ export function settle(items: OutboxItem[], key: string, token: string, outcome:
     delete item.claimToken;
     delete item.lastError;
     delete item.stuckReason;
+    delete item.lastAttempt;
     return;
   }
 
   if (item.state !== "sending" || item.claimToken !== token) return;
   delete item.claimedAt;
   delete item.claimToken;
+  item.lastAttempt = outcome.type === "retry" ? (outcome.noAnswer ? "no_answer" : "server_busy") : outcome.type === "busy" ? "server_busy" : "refused";
   if (outcome.error) item.lastError = { ...outcome.error };
   const answered = !(outcome.type === "retry" && outcome.noAnswer);
   if (answered) delete item.noAnswerSince;
@@ -295,6 +299,7 @@ export function retry(items: OutboxItem[], key: string, now: number, newKey: () 
   if (replaced) item.key = newKey();
   freshStart(item);
   delete item.lastError;
+  delete item.lastAttempt;
   return { ok: true, key: item.key, newKey: replaced };
 }
 

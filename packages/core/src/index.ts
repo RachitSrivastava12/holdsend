@@ -6,6 +6,7 @@ export type {
   OutboxItem,
   Policy,
   PolicyOptions,
+  AttemptReason,
   StuckReason,
 } from "./types.js";
 export { DEFAULT_POLICY, resolvePolicy } from "./types.js";

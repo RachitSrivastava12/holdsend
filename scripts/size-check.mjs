@@ -6,7 +6,8 @@ import { build } from "esbuild";
 import { gzipSync } from "node:zlib";
 
 const BUDGETS = [
-  { name: "@holdsend/core", entry: "packages/core/dist/index.js", gzipBytes: 5 * 1024 },
+  // 5.25 KB since decision 0014 (the reason of the last attempt, sendNow).
+  { name: "@holdsend/core", entry: "packages/core/dist/index.js", gzipBytes: 5376 },
   // The emergency subpath, with the parts of core it imports bundled in.
   { name: "@holdsend/core/emergency", entry: "packages/core/dist/emergency.js", gzipBytes: 6 * 1024 },
   // Drafts: a pure function with no imports.
