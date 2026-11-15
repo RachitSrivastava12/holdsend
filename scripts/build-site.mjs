@@ -91,6 +91,19 @@ export function outputPath(source) {
   return dir === "." ? file : `${dir}/${file}`;
 }
 
+/** The id GitHub gives a heading: lower case, punctuation dropped, spaces to hyphens, repeats numbered. */
+export function slugify(text, seen = new Map()) {
+  const base = text
+    .toLowerCase()
+    .replace(/<[^>]*>/g, "")
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .trim()
+    .replace(/\s/g, "-");
+  const n = seen.get(base) ?? 0;
+  seen.set(base, n + 1);
+  return n ? `${base}-${n}` : base;
+}
+
 const escapeHtml = (text) => text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 /**
@@ -181,8 +194,16 @@ export async function buildSite(outDir) {
       const markdown = await readFile(join(ROOT, source), "utf8");
       const out = outputPath(source);
       const toRoot = "../".repeat(out.split("/").length - 1);
+      const slugs = new Map();
       const marked = new Marked({
         gfm: true,
+        renderer: {
+          // GitHub-style ids on headings, so a link to page.md#a-heading works on the site too.
+          heading({ tokens, depth, text }) {
+            const id = slugify(text, slugs);
+            return `<h${depth} id="${id}">${this.parser.parseInline(tokens)}</h${depth}>\n`;
+          },
+        },
         walkTokens(token) {
           if ((token.type === "link" || token.type === "image") && token.href) token.href = rewriteLink(token.href, source, published);
         },

@@ -34,13 +34,13 @@ HoldSend is not 1.0 yet, and its README will not say "ready for production" unti
 - [ ] **Items that need confirmation show when they were written** before the person presses Send.
 - [ ] **A custom `Store` keeps the `Store` contract**: each `update` is atomic, it keeps its own copies, and it saves items unchanged. There is no published test suite for client stores yet, so use the built-in stores where you can. ([stored item format](protocol.md#the-stored-item-format))
 - [ ] **Emergency messages, if you use them**: the screen says it is not an emergency service and tells people to call their local emergency number first; SMS links are tested on the phones your people use. ([emergency messages](emergency.md))
-- [ ] **Drafts on two devices, if you use them**: the API is early and may change in a minor release before 1.0. Whether it joins the 1.0 promise is decided at the freeze by [decision 0015](decisions/0015-drafts-and-the-1.0-promise.md). ([drafts](drafts.md))
+- [ ] **Drafts on two devices, if you use them**: the API is early. It changed in 0.3 ([upgrading](upgrading.md)), and any further change keeps it outside the 1.0 promise until 1.1 ([decision 0015](decisions/0015-drafts-and-the-1.0-promise.md)). ([drafts](drafts.md))
 
 ## What 1.0 needs before the README changes
 
 These are the project's own gates. Each one is tracked in [STATUS.md](STATUS.md).
 
-1. **The API is frozen.** The open items of [decision 0013](decisions/0013-api-review-for-1.0.md) are accepted or rejected, the breaking ones are made, and `api/*.api.txt` is the 1.0 record. A migration guide from 0.2 is written.
+1. **The API is frozen.** The items of [decision 0013](decisions/0013-api-review-for-1.0.md) are settled ([decision 0015](decisions/0015-drafts-and-the-1.0-promise.md)) and the breaking one is made; `api/*.api.txt` becomes the 1.0 record at the freeze. The migration guide from 0.2 is [upgrading.md](upgrading.md).
 2. **Phone features have run on phones.** SMS links on a real iPhone and a real Android phone, and the Android background task on a real phone or an emulator in CI. Until then those features stay outside the 1.0 promise and say so.
 3. **A final audit by reviewers who did not write the code**, with every finding fixed or explained, like the four audits in [docs/audits](audits).
 4. **Someone other than the project has run it.** At least one app outside this repository has used a release without hitting a bug that loses or duplicates an item.

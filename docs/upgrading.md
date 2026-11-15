@@ -1,6 +1,6 @@
 # Upgrading
 
-What to change in your code when you move to a new release. Releases before 1.0 may break the API in a minor version; every such break is listed here with the edit it needs. From 1.0 on, breaking changes need a major version ([decision 0012](decisions/0012-api-record.md)).
+What to change in your code when you move to a new release. Releases before 1.0 may break the API in a minor version; every such break is listed here with the edit it needs. From 1.0 on, breaking changes need a major version ([decision 0012](decisions/0012-api-record.md)), except in parts the changelog marks as outside the promise (the draft helpers may be one, see [decision 0015](decisions/0015-drafts-and-the-1.0-promise.md)).
 
 ## 0.2 to 0.3 (not released yet)
 

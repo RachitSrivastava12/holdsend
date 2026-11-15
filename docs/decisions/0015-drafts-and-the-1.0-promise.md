@@ -15,6 +15,8 @@ Items 1, 4 and 5 of decision 0013 are done (non-breaking, 2026-11-15).
    - no change to the drafts API (the `drafts` part of `api/core.api.txt` and the draft exports in `api/server.api.txt`) between 0.3.0 and the freeze, and
    - the final audit before 1.0 covers the drafts code and finds nothing that needs an API change.
 
+   0.3 is planned as the last minor release before the freeze, so the first condition mostly guards against a late change; the audit is the real test.
+
    Otherwise 1.0 ships them under the same names, and the changelog, the READMEs and docs/drafts.md say the drafts API is outside the semver promise until 1.1. The default, if nobody checks, is outside.
 
 ## Why
