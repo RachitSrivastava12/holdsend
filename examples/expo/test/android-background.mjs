@@ -63,12 +63,25 @@ const find = async (id, text) => (await screen()).find((v) => v.id === id && (te
 const tap = (view) => shell("input", "tap", String(view.x), String(view.y));
 const pid = async () => (await shell("pidof", PACKAGE).catch(() => "")).trim();
 
-/** Ids of the app's WorkManager jobs, from JobScheduler's dump ("JOB #u0a141/0: 1f2e3d io.example/androidx.work..."). */
-async function workJobIds() {
+/**
+ * The app's WorkManager jobs, from JobScheduler's dump. Android 14 prints
+ * "JOB androidx.work.systemjobscheduler:u0a141/0: ..." (a namespace, then
+ * uid/id); older versions print "JOB #u0a141/0: ...".
+ */
+async function workJobs() {
   const dump = await shell("dumpsys", "jobscheduler");
-  const lines = dump.split("\n").filter((line) => line.includes(`${PACKAGE}/androidx.work.`) && /JOB #/.test(line));
-  return [...new Set(lines.map((line) => line.match(/JOB #[^/\s]+\/(\d+):/)?.[1]).filter(Boolean))];
+  const jobs = new Map();
+  for (const line of dump.split("\n")) {
+    if (!line.includes(`${PACKAGE}/androidx.work.`)) continue;
+    const m = line.match(/^\s*JOB (?:#|([^\s:]+):)u\w+\/(\d+):/);
+    if (m) jobs.set(`${m[1] ?? ""}/${m[2]}`, { namespace: m[1], id: m[2] });
+  }
+  return [...jobs.values()];
 }
+
+/** Runs one job now, ignoring its delay and constraints. */
+const runJob = (job) =>
+  shell("cmd", "jobscheduler", "run", "-f", ...(job.namespace ? ["-n", job.namespace] : []), PACKAGE, job.id);
 
 // Every request the app makes to the server, to show what happened.
 const requests = [];
@@ -90,10 +103,10 @@ try {
 
   // The app registers the background task when it opens.
   const jobs = await waitUntil(async () => {
-    const ids = await workJobIds();
-    return ids.length > 0 ? ids : null;
+    const found = await workJobs();
+    return found.length > 0 ? found : null;
   }, "the background task to be registered with JobScheduler", 60_000);
-  log(`background job ids: ${jobs.join(", ")}`);
+  log(`background jobs: ${jobs.map((j) => `${j.namespace ?? "(none)"}/${j.id}`).join(", ")}`);
 
   // 2. Write a note. Nothing listens on the server's port, so it waits.
   await tap(field);
@@ -121,7 +134,7 @@ try {
   // 5. Run the background job now. Re-run it if Android has not started it
   // yet; running it twice must not publish twice either.
   await waitUntil(async () => {
-    for (const id of await workJobIds()) await shell("cmd", "jobscheduler", "run", "-f", PACKAGE, id);
+    for (const job of await workJobs()) await runJob(job);
     for (let i = 0; i < 20; i++) {
       if (requests.some((r) => r.method === "POST" && r.url === "/api/notes")) return true;
       await sleep(1000);
