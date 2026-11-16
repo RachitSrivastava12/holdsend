@@ -13,6 +13,9 @@
     },
     "ios": {
       "bundleIdentifier": "io.github.zyakuhq.holdsend.notes"
-    }
+    },
+    "plugins": [
+      "./plugins/keep-work-database"
+    ]
   }
 }
