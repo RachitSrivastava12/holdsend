@@ -46,8 +46,16 @@ async function waitUntil(check, what, timeoutMs) {
 
 /** The screen's views, from uiautomator: resource id (React Native testID), text and centre. */
 async function screen() {
-  await shell("uiautomator", "dump", "/sdcard/holdsend-ui.xml");
-  const xml = await shell("cat", "/sdcard/holdsend-ui.xml");
+  // A dump sometimes fails (no idle state yet); remove the old file so a
+  // failed dump is never read as the current screen, and try again later.
+  let xml;
+  try {
+    await shell("rm", "-f", "/sdcard/holdsend-ui.xml");
+    await shell("uiautomator", "dump", "/sdcard/holdsend-ui.xml");
+    xml = await shell("cat", "/sdcard/holdsend-ui.xml");
+  } catch {
+    return [];
+  }
   const views = [];
   for (const [node] of xml.matchAll(/<node [^>]*>/g)) {
     const attr = (name) => node.match(new RegExp(` ${name}="([^"]*)"`))?.[1] ?? "";
@@ -81,13 +89,34 @@ async function workJobs() {
 
 /** Runs one job now, ignoring its delay and constraints. */
 const runJob = (job) =>
-  shell("cmd", "jobscheduler", "run", "-f", ...(job.namespace ? ["-n", job.namespace] : []), PACKAGE, job.id);
+  shell("cmd", "jobscheduler", "run", "-f", ...(job.namespace ? ["-n", job.namespace] : []), PACKAGE, job.id).catch((err) => {
+    // The job may have finished and been replaced by a new id; the caller retries.
+    log(`could not run job ${job.namespace ?? ""}/${job.id}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+  });
+
+/** Forces the app's jobs until a new POST arrives or `ms` pass. Returns whether one arrived. */
+async function forceJobsUntilPost(ms) {
+  const seen = posts().length;
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    for (const job of await workJobs()) await runJob(job);
+    for (let i = 0; i < 20 && Date.now() < end; i++) {
+      if (posts().length > seen) return true;
+      await sleep(1000);
+    }
+  }
+  return posts().length > seen;
+}
+
+/** Is the on-screen keyboard showing? */
+const keyboardShown = async () => /mInputShown=true/.test(await shell("dumpsys", "input_method").catch(() => ""));
 
 // Every request the app makes to the server, to show what happened.
 const requests = [];
+const posts = () => requests.filter((r) => r.method === "POST" && r.url === "/api/notes");
 const notes = await createNotesApp({});
 const server = createServer((req, res) => {
-  requests.push({ method: req.method, url: req.url, owner: req.headers["x-demo-user"], at: new Date().toISOString() });
+  requests.push({ method: req.method, url: req.url, owner: req.headers["x-demo-user"], key: req.headers["idempotency-key"], at: new Date().toISOString() });
   notes.app(req, res);
 });
 
@@ -111,11 +140,12 @@ try {
   // 2. Write a note. Nothing listens on the server's port, so it waits.
   await tap(field);
   await shell("input", "text", text);
-  await shell("input", "keyevent", "KEYCODE_BACK"); // close the keyboard so Send is visible
+  // Close the keyboard so Send is visible. Only when it is showing: BACK with
+  // no keyboard would leave the app.
+  if (await keyboardShown()) await shell("input", "keyevent", "KEYCODE_BACK");
   await tap(await waitUntil(() => find("send"), "the Send button", 10_000));
   await waitUntil(() => find("note-text", text), "the note in the outbox", 15_000);
-  await sleep(3000); // at least one failed attempt
-  assert.equal(requests.length, 0, "no server is listening yet");
+  await sleep(3000); // the app tries and fails: nothing listens on the port
   log("note is waiting on the device");
 
   // 3. Leave the app and kill its process the way Android does for a cached
@@ -131,34 +161,48 @@ try {
   await new Promise((resolve) => server.listen(PORT, "127.0.0.1", resolve));
   log(`notes server listening on ${PORT}`);
 
-  // 5. Run the background job now. Re-run it if Android has not started it
-  // yet; running it twice must not publish twice either.
-  await waitUntil(async () => {
-    for (const job of await workJobs()) await runJob(job);
-    for (let i = 0; i < 20; i++) {
-      if (requests.some((r) => r.method === "POST" && r.url === "/api/notes")) return true;
-      await sleep(1000);
-    }
-    return false;
-  }, "the background task to send the note", 150_000);
-  const owner = requests.find((r) => r.method === "POST" && r.url === "/api/notes").owner;
-  log(`the note arrived; app process ${await pid()} was started without opening the app`);
+  // 5. Run the background job now, re-forcing it if Android has not
+  // started it yet. The log is cleared first, to see why the process starts.
+  await adb("logcat", "-c");
+  assert.ok(await forceJobsUntilPost(150_000), "the background task sends the note");
+  const owner = posts()[0].owner;
+  const jobPid = await pid();
+  log(`the note arrived; app process ${jobPid}`);
 
-  // 6. No screen was opened to send it.
+  // 6. Android started the process for the job, not for a screen, and no
+  // screen of the app is open.
+  const starts = (await adb("logcat", "-d", "-s", "ActivityManager")).split("\n").filter((line) => line.includes(`Start proc`) && line.includes(`:${PACKAGE}/`));
+  log(`process starts: ${starts.map((l) => l.trim()).join(" | ")}`);
+  assert.equal(starts.length, 1, "the app's process was started once after it was killed");
+  assert.match(starts[0], /SystemJobService/, "it was started for WorkManager's job service");
+  assert.doesNotMatch(starts[0], /activity/i, "not for a screen");
   const activities = await shell("dumpsys", "activity", "activities");
   const resumed = activities.split("\n").filter((line) => /mResumedActivity|topResumedActivity/.test(line));
+  assert.ok(resumed.length > 0, "found the resumed activity in the dump");
   assert.ok(!resumed.some((line) => line.includes(PACKAGE)), `the app's screen is not open:\n${resumed.join("\n")}`);
 
-  // 7. Published once, with the text that was written.
+  // 7. Published once, with the text that was written, and every attempt
+  // used the same key.
   await sleep(5000); // time for any second copy to arrive
-  const res = await fetch(`http://127.0.0.1:${PORT}/api/notes`, { headers: { "x-demo-user": owner } });
-  const published = (await res.json()).notes.map((n) => n.text);
-  assert.deepEqual(published, [text], "the note is published exactly once");
-  log(`published once: ${JSON.stringify(published)}`);
+  assert.equal(new Set(posts().map((r) => r.key)).size, 1, "every attempt used one idempotency key");
+  const published = async () => {
+    const res = await fetch(`http://127.0.0.1:${PORT}/api/notes`, { headers: { "x-demo-user": owner } });
+    return (await res.json()).notes.map((n) => n.text);
+  };
+  assert.deepEqual(await published(), [text], "the note is published exactly once");
+  log(`published once: ${JSON.stringify(await published())}`);
+
+  // 8. The device knows it was sent: forcing the job again sends nothing.
+  assert.ok((await workJobs()).length > 0, "the task is scheduled again, so there is a job to force");
+  const sentBefore = posts().length;
+  assert.equal(await forceJobsUntilPost(30_000), false, "a second run of the task sends nothing");
+  assert.equal(posts().length, sentBefore);
+  assert.deepEqual(await published(), [text], "still published once");
+  log("a second run of the task sent nothing");
   failed = false;
 } finally {
   console.log("[android] requests the server saw:");
-  for (const r of requests) console.log(`  ${r.at} ${r.method} ${r.url}`);
+  for (const r of requests) console.log(`  ${r.at} ${r.method} ${r.url}${r.key ? ` key ${r.key.slice(0, 8)}...` : ""}`);
   await new Promise((resolve) => (server.listening ? server.close(resolve) : resolve()));
   await notes.close();
   process.exitCode = failed ? 1 : 0;

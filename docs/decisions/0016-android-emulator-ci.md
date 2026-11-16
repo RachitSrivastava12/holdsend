@@ -24,5 +24,9 @@ Android 14 also prints JobScheduler jobs with a namespace (`JOB androidx.work.sy
 
 ## What it proves and what it does not
 
-- Proves: the task is registered with JobScheduler; when Android runs it, in a process started without a screen, it sends what was waiting, once.
+- Proves: the task is registered with JobScheduler; when Android runs it, in a process Android started for WorkManager's job service (checked in the system log) with no screen of the app open, it sends what was waiting, every attempt with one key, and the note is published once; a second forced run sends nothing, so the device recorded it as sent.
 - Does not prove: how often Android runs the task on its own, behaviour on low battery or after force-stop, or anything on a real phone or on iOS. Those limits stay in the README.
+
+## Reviewed
+
+Reviewed by a separate agent before merge. Fixed: the "no screen" check could pass on an empty dump (now it also checks why the process started), exactly-once leaned on the server alone (now one key per note and a second forced run must send nothing), the path filters missed the server package and the notes example, and closing the keyboard with BACK could leave the app (the emulator now has a hardware keyboard and BACK is sent only when the keyboard shows). Not done yet: pinning the emulator version, caching Gradle, and saving the logs as an artifact.

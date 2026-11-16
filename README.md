@@ -32,7 +32,7 @@ Networks fail at the worst moments: in a flood, at a protest, on a train, in a v
 | [`@holdsend/core`](packages/core) | Outbox state machine, keys, written-time rules, wire protocol, flush scheduler. No runtime dependencies. | 0.2.0 on npm. Unit tests and a fault-injection suite on Node 20 and later. |
 | [`@holdsend/server`](packages/server) | Idempotency store for Postgres and memory, and a framework-agnostic request handler | 0.2.0 on npm. The key and the result are written in one transaction and a retry gets the original answer; tested against a real Postgres server in CI, including races on the same key. |
 | [`@holdsend/web`](packages/web) | IndexedDB store, one sender across tabs, auto-flush, Background Sync helpers | 0.2.0 on npm. Browser tests run in Chromium only; Safari and Firefox are not tested in CI. |
-| [`@holdsend/react-native`](packages/react-native) | AsyncStorage and MMKV store, auto-flush wired to NetInfo and AppState | 0.2.0 on npm. Unit tests, and the Expo example's web build in a browser. Not yet run on a real phone or an emulator in CI. |
+| [`@holdsend/react-native`](packages/react-native) | AsyncStorage and MMKV store, auto-flush wired to NetInfo and AppState | 0.2.0 on npm. Unit tests, the Expo example's web build in a browser, and the Android background task on an emulator in CI (unreleased). Not yet run on a real phone. |
 | Emergency module (`@holdsend/core/emergency`) | Its own queue, the first message sent by itself and later ones on the person's say-so, repeated taps as one message, background sending where possible, SMS hand-off ([guide](docs/emergency.md)) | New in 0.2 |
 
 How it is tested: [docs/testing.md](docs/testing.md).

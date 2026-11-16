@@ -10,17 +10,17 @@ on:
     branches: [main]
     paths:
       - "examples/expo/**"
-      - "examples/notes/src/**"
-      - "packages/core/src/**"
-      - "packages/react-native/src/**"
+      - "examples/notes/**"
+      - "packages/**"
+      - "package.json"
       - "package-lock.json"
       - ".github/workflows/android.yml"
   pull_request:
     paths:
       - "examples/expo/**"
-      - "examples/notes/src/**"
-      - "packages/core/src/**"
-      - "packages/react-native/src/**"
+      - "examples/notes/**"
+      - "packages/**"
+      - "package.json"
       - "package-lock.json"
       - ".github/workflows/android.yml"
   workflow_dispatch:
@@ -91,7 +91,10 @@ jobs:
           "$tools/sdkmanager" emulator platform-tools "$SYSTEM_IMAGE" > /dev/null
           echo no | "$tools/avdmanager" create avd --name ci --package "$SYSTEM_IMAGE" --force
           "$ANDROID_HOME/emulator/emulator" -accel-check
+          # A hardware keyboard, so no on-screen keyboard covers the app's buttons.
+          echo "hw.keyboard=yes" >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
           "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx ci
+          "$ANDROID_HOME/emulator/emulator" -version | head -1
 
       - name: Boot the emulator
         timeout-minutes: 12
