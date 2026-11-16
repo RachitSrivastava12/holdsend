@@ -1,5 +1,7 @@
 // Run once during deployment, before starting application instances.
 import pg from "pg";
+import { error as logError, log } from "node:console";
+import process from "node:process";
 import { postgresDraftSchema, postgresSchema } from "@holdsend/server";
 import { NOTES_SCHEMA } from "./schema.mjs";
 
@@ -31,7 +33,7 @@ try {
   );
 
   await client.query("COMMIT");
-  console.log("HoldSend Notes PostgreSQL schema is up to date.");
+  log("HoldSend Notes PostgreSQL schema is up to date.");
 } catch (error) {
   try {
     await client.query("ROLLBACK");
@@ -39,7 +41,7 @@ try {
     // Preserve the original migration error.
   }
 
-  console.error("PostgreSQL migration failed; the transaction was rolled back.");
+  logError("PostgreSQL migration failed; the transaction was rolled back.");
   throw error;
 } finally {
   await client.end();
