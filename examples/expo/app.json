@@ -7,6 +7,12 @@
     "userInterfaceStyle": "automatic",
     "web": {
       "output": "single"
+    },
+    "android": {
+      "package": "io.github.zyakuhq.holdsend.notes"
+    },
+    "ios": {
+      "bundleIdentifier": "io.github.zyakuhq.holdsend.notes"
     }
   }
 }

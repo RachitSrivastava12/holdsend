@@ -18,7 +18,8 @@ import { existsSync, readFileSync } from "node:fs";
 
 const ALLOWED_EMAILS = new Set(["security@zyaku.com"]);
 const ALLOWED_EMAIL_DOMAINS = [/@example\.(com|org|net)$/i, /@users\.noreply\.github\.com$/i];
-const ALLOWED_IPS = [/^127\./, /^0\.0\.0\.0$/, /^192\.0\.2\./, /^198\.51\.100\./, /^203\.0\.113\./, /^255\.255\.255\.255$/];
+// 10.0.2.2 is the fixed address an Android emulator uses for its host computer.
+const ALLOWED_IPS = [/^127\./, /^10\.0\.2\.2$/, /^0\.0\.0\.0$/, /^192\.0\.2\./, /^198\.51\.100\./, /^203\.0\.113\./, /^255\.255\.255\.255$/];
 
 // Files that are generated or binary, or that by design hold the patterns.
 const SKIP = [/^package-lock\.json$/, /(^|\/)node_modules\//, /(^|\/)dist\//, /\.(png|jpe?g|gif|ico|woff2?|pdf)$/i, /^LICENSE$/];

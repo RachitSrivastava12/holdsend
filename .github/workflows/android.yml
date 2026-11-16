@@ -1,0 +1,107 @@
+name: Android emulator
+
+# Builds the Expo example as a release APK, installs it on an Android
+# emulator and checks that its background task sends a waiting note once
+# (examples/expo/test/android-background.mjs). Slow (a native build and an
+# emulator boot), so it runs when the code it covers changes, on main, and
+# by hand.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/expo/**"
+      - "examples/notes/src/**"
+      - "packages/core/src/**"
+      - "packages/react-native/src/**"
+      - "package-lock.json"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "examples/expo/**"
+      - "examples/notes/src/**"
+      - "packages/core/src/**"
+      - "packages/react-native/src/**"
+      - "package-lock.json"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  background-task:
+    name: Expo example background task on an emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ANDROID_PACKAGE: io.github.zyakuhq.holdsend.notes
+      SYSTEM_IMAGE: "system-images;android-34;default;x86_64"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Generate the Android project
+        working-directory: examples/expo
+        env:
+          CI: 1
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Allow plain http to the emulator's host (this CI build only)
+        working-directory: examples/expo/android
+        # The test server is http://10.0.2.2:3000. A release build refuses
+        # plain http unless the manifest allows it; a real app uses https.
+        run: |
+          manifest=app/src/main/AndroidManifest.xml
+          if ! grep -q 'usesCleartextTraffic="true"' "$manifest"; then
+            sed -i 's/<application /<application android:usesCleartextTraffic="true" /' "$manifest"
+          fi
+          grep -q 'usesCleartextTraffic="true"' "$manifest"
+
+      - name: Build the release APK (x86_64 only)
+        working-directory: examples/expo/android
+        env:
+          EXPO_PUBLIC_NOTES_URL: http://10.0.2.2:3000
+          NODE_ENV: production
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon --stacktrace
+
+      - name: Start an emulator
+        run: |
+          # Let this user use KVM, so the emulator runs at full speed.
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          tools="$ANDROID_HOME/cmdline-tools/latest/bin"
+          yes | "$tools/sdkmanager" --licenses > /dev/null || true
+          "$tools/sdkmanager" emulator platform-tools "$SYSTEM_IMAGE" > /dev/null
+          echo no | "$tools/avdmanager" create avd --name ci --package "$SYSTEM_IMAGE" --force
+          nohup "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          adb wait-for-device
+          timeout 600 sh -c 'until [ "$(adb shell getprop sys.boot_completed | tr -d "\r")" = 1 ]; do sleep 3; done' || { tail -50 "$RUNNER_TEMP/emulator.log"; exit 1; }
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell wm dismiss-keyguard || true
+
+      - name: Install the app
+        run: adb install -r examples/expo/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: The background task sends a waiting note once
+        run: node examples/expo/test/android-background.mjs
+
+      - name: Android log (on failure)
+        if: failure()
+        run: |
+          adb logcat -d -v time > "$RUNNER_TEMP/logcat.txt" || true
+          grep -E 'ReactNativeJS|WM-|expo|TaskManager|BackgroundTask|AndroidRuntime|holdsend' "$RUNNER_TEMP/logcat.txt" | tail -300 || true
