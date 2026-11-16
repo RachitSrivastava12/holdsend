@@ -174,8 +174,10 @@ try {
   const starts = (await adb("logcat", "-d", "-s", "ActivityManager")).split("\n").filter((line) => line.includes(`Start proc`) && line.includes(`:${PACKAGE}/`));
   log(`process starts: ${starts.map((l) => l.trim()).join(" | ")}`);
   assert.equal(starts.length, 1, "the app's process was started once after it was killed");
-  assert.match(starts[0], /SystemJobService/, "it was started for WorkManager's job service");
-  assert.doesNotMatch(starts[0], /activity/i, "not for a screen");
+  // "Start proc 2525:<package>/u0a141 for service {<package>/androidx.work...SystemJobService}";
+  // opening a screen says "for next-top-activity {...}" or "for top-activity {...}".
+  assert.match(starts[0], / for service \{[^}]*\/androidx\.work\.impl\.background\.systemjob\.SystemJobService\}/, "it was started for WorkManager's job service");
+  assert.doesNotMatch(starts[0], / for [\w-]*activity/i, "not for a screen");
   const activities = await shell("dumpsys", "activity", "activities");
   const resumed = activities.split("\n").filter((line) => /mResumedActivity|topResumedActivity/.test(line));
   assert.ok(resumed.length > 0, "found the resumed activity in the dump");
