@@ -16,6 +16,12 @@ A separate workflow, `.github/workflows/android.yml`, on GitHub's standard Linux
 - `examples/expo/test/android-background.mjs` drives the app with `adb` and `uiautomator`: write a note while nothing listens on the port, press Home, kill the process with `am kill` (what Android does to a cached app; `force-stop` would cancel its jobs), start the server, force the app's WorkManager job with `cmd jobscheduler run -f`, and check that the note is published exactly once and no screen of the app was opened.
 - It runs on pull requests and pushes that change the code it covers, and by hand. It is slow (native build plus emulator boot), so not on every pull request.
 
+## What it found
+
+The first run that got past setup showed the release build crashing at launch: Expo's template turns R8 on, and R8 removed the no-argument constructor of `WorkDatabase_Impl`, which Room creates by reflection. A web build and unit tests could not see this. The example now keeps it with a config plugin (`examples/expo/plugins/keep-work-database.js`), and the READMEs tell people using `expo-background-task` with R8 to check a release build.
+
+Android 14 also prints JobScheduler jobs with a namespace (`JOB androidx.work.systemjobscheduler:u0a141/0`), so the test reads both forms and runs the job with `-n`.
+
 ## What it proves and what it does not
 
 - Proves: the task is registered with JobScheduler; when Android runs it, in a process started without a screen, it sends what was waiting, once.
