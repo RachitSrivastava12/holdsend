@@ -63,11 +63,11 @@ const find = async (id, text) => (await screen()).find((v) => v.id === id && (te
 const tap = (view) => shell("input", "tap", String(view.x), String(view.y));
 const pid = async () => (await shell("pidof", PACKAGE).catch(() => "")).trim();
 
-/** Ids of the app's WorkManager jobs, from JobScheduler's dump. */
+/** Ids of the app's WorkManager jobs, from JobScheduler's dump ("JOB #u0a141/0: 1f2e3d io.example/androidx.work..."). */
 async function workJobIds() {
-  const dump = await shell("dumpsys", "jobscheduler", PACKAGE);
-  const pattern = new RegExp(`JOB #\\S+/(\\d+): \\S+ ${PACKAGE.replaceAll(".", "\\.")}/androidx\\.work\\.`, "g");
-  return [...new Set([...dump.matchAll(pattern)].map((m) => m[1]))];
+  const dump = await shell("dumpsys", "jobscheduler");
+  const lines = dump.split("\n").filter((line) => line.includes(`${PACKAGE}/androidx.work.`) && /JOB #/.test(line));
+  return [...new Set(lines.map((line) => line.match(/JOB #[^/\s]+\/(\d+):/)?.[1]).filter(Boolean))];
 }
 
 // Every request the app makes to the server, to show what happened.
