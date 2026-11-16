@@ -82,20 +82,26 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          # One place for the virtual device, for avdmanager and the emulator alike.
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           tools="$ANDROID_HOME/cmdline-tools/latest/bin"
           yes | "$tools/sdkmanager" --licenses > /dev/null || true
           "$tools/sdkmanager" emulator platform-tools "$SYSTEM_IMAGE" > /dev/null
           echo no | "$tools/avdmanager" create avd --name ci --package "$SYSTEM_IMAGE" --force
           "$ANDROID_HOME/emulator/emulator" -accel-check
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx ci
 
       - name: Boot the emulator
         timeout-minutes: 12
         run: |
           nohup "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          emulator_pid=$!
           booted() { [ "$(timeout 10 adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; }
           for i in $(seq 1 200); do
             if booted; then break; fi
-            if ! pgrep -f qemu-system > /dev/null; then echo "The emulator exited."; tail -80 "$RUNNER_TEMP/emulator.log"; exit 1; fi
+            if ! kill -0 "$emulator_pid" 2> /dev/null; then echo "The emulator exited."; tail -80 "$RUNNER_TEMP/emulator.log"; exit 1; fi
             sleep 3
           done
           booted || { echo "Not booted after 10 minutes."; tail -80 "$RUNNER_TEMP/emulator.log"; exit 1; }
@@ -117,5 +123,6 @@ jobs:
         if: failure()
         run: |
           tail -40 "$RUNNER_TEMP/emulator.log" || true
+          if [ "$(timeout 10 adb get-state 2> /dev/null)" != device ]; then echo "No emulator to read a log from."; exit 0; fi
           timeout 60 adb logcat -d -v time > "$RUNNER_TEMP/logcat.txt" || true
           grep -E 'ReactNativeJS|WM-|expo|TaskManager|BackgroundTask|AndroidRuntime|holdsend' "$RUNNER_TEMP/logcat.txt" | tail -300 || true
