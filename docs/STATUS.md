@@ -2,10 +2,12 @@
 
 The project's working memory. Every work session reads this first and updates it last.
 
-Last updated: 2026-11-16 (Android emulator job in CI, decision 0016; R8 crash fixed in the Expo example)
+Last updated: 2026-11-17 (Android CI follow-ups: pinned emulator, Gradle cache, logs kept on failure; dev dependency advisories)
 
 ## Done
 
+- Android CI follow-ups (2026-11-17, [#74](https://github.com/zyakuhq/holdsend/pull/74), [decision 0016](decisions/0016-android-emulator-ci.md)): the emulator is pinned to one build (37.4.1, build 16916650), downloaded from Google and checked against the SHA-1 in Google's download list; the system image (Android 14, revision 2) cannot be pinned through `sdkmanager`, so a different revision shows a warning. Gradle downloads are cached (the job went from about 12 to about 8.5 minutes); tasks still run every time. On failure, logcat and the emulator log are kept as an artifact for 14 days. CI only; not reviewed by a separate agent (no package or test code changed).
+- Dev dependency advisories (2026-11-17, [#75](https://github.com/zyakuhq/holdsend/pull/75)): `npm audit fix`, lockfile only. The three high advisories (`@expo/cli`, `node-forge`, `zod`) and the `typescript-eslint` ones are gone; three moderate ones remain (`minimatch` through `@expo/fingerprint`, needs a major Expo upgrade). None of the four packages has a third-party runtime dependency, so nothing published was affected.
 - Android emulator job in CI (2026-11-16, [#72](https://github.com/zyakuhq/holdsend/pull/72), [decision 0016](decisions/0016-android-emulator-ci.md)): `.github/workflows/android.yml` builds the Expo example as a release APK, boots an Android 14 emulator and runs `examples/expo/test/android-background.mjs`. A note written while the server is unreachable waits, the app's process is killed (`am kill`), the server starts, the WorkManager job is forced, and the test checks: the process was started for the job service, no screen of the app is open, one key per note, the note is published once, and a second forced run sends nothing. Runs when packages or examples change, on main, and by hand. It found a real bug: Expo's template turns R8 on and the release build crashed at launch (WorkManager's database constructor removed); the example now keeps it with `plugins/keep-work-database.js`, and the READMEs warn `expo-background-task` users. Reviewed by a separate agent; its findings fixed (see the decision). Not checked against deliberately broken code; the test cannot pass without a POST from the killed app, which only the job can make. Forcing the job does not show how often Android runs it.
 - Decision 0013 settled (2026-11-15, [#69](https://github.com/zyakuhq/holdsend/pull/69), [decision 0015](decisions/0015-drafts-and-the-1.0-promise.md)): breaking, unreleased, for 0.3: `count`, `repeats` and `dangling` of `DraftState` moved under `log` (`DraftLogInfo`). Drafts join the 1.0 promise only if their API does not change after 0.3.0 and the final audit finds nothing needing an API change; otherwise outside until 1.1. Migration guide: [upgrading.md](upgrading.md). The docs site gives headings GitHub-style ids and its test fails on a missing anchor. Reviewed by a separate agent; five findings fixed.
 - From an outside review (2026-11-15): `lastAttempt` on every item that left the device without a confirmed outcome (`no_answer`, `server_busy`, `refused`; display only), `outbox.sendNow()` with a test where the first answer is lost after the server created the item (same key twice, one item created), and the README table says per package what is tested and where. The core budget moved to 5.25 KB ([decision 0014](decisions/0014-core-budget-5.25kb.md)). The review's request for a Postgres idempotency store was already met in 0.1.0.
@@ -73,7 +75,7 @@ The four gates to 1.0 are in [production.md](production.md#what-10-needs-before-
 
 ## After that
 
-- Android CI follow-ups from the review: pin the emulator version, cache Gradle, save logcat as an artifact on failure.
+- The last three moderate dev-dependency advisories need a major Expo upgrade of the Expo example; do it with the Android job watching.
 
 - Conflict handling for one draft edited on two devices (append-only updates with a reason). This is the hard part; say so.
 
@@ -91,7 +93,8 @@ The four gates to 1.0 are in [production.md](production.md#what-10-needs-before-
 
 ## Open questions for the project lead
 
-- None.
+- Outside pull request [#71](https://github.com/zyakuhq/holdsend/pull/71) (2026-11-16): moves Postgres schema setup out of the notes example's startup into a migration script with a lock timeout, and changes the server README and two doc comments to match. Read on 2026-11-17: the idea is sound and worth taking. Before it can merge: it is based on history from before `main` was rewritten, so as it stands it would undo about twenty files (including the Android job); it needs a rebase onto current `main`. Its README section sits after the licence heading. Its CI has not run (first-time contributor runs wait for a maintainer's approval in Actions). No comment was posted; the project lead decides whether to answer the contributor.
+- Release 0.3.0: the work planned for 0.3 is in `main` (drafts, Android background task on an emulator, low-end notes). Version bump and release notes in one pull request once the project lead says go, then tag and the two approvals.
 
 ## Notes for maintainers
 
