@@ -66,6 +66,19 @@ jobs:
           fi
           grep -q 'usesCleartextTraffic="true"' "$manifest"
 
+      - name: Cache Gradle
+        # Gradle's downloads, the Gradle distribution and its transform
+        # caches. Tasks still run (no build cache), so a cache hit cannot
+        # hide a broken build. The key changes with the lockfile, the
+        # example's config and its config plugins.
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json', 'examples/expo/app.json', 'examples/expo/plugins/**') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Build the release APK (x86_64 only)
         working-directory: examples/expo/android
         env:
@@ -94,7 +107,14 @@ jobs:
           # A hardware keyboard, so no on-screen keyboard covers the app's buttons.
           echo "hw.keyboard=yes" >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
           "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx ci
-          "$ANDROID_HOME/emulator/emulator" -version | head -1
+
+      - name: Versions of the emulator and the system image (temporary, for pinning)
+        continue-on-error: true
+        run: |
+          grep -E 'Pkg.Revision' "$ANDROID_HOME/emulator/source.properties" || true
+          grep -E 'Pkg.Revision|SystemImage' "$ANDROID_HOME/system-images/android-34/default/x86_64/source.properties" || true
+          curl -fsS https://dl.google.com/android/repository/repository2-3.xml | tr -d '\r' | grep -B2 -A2 'emulator-linux_x64' | tail -40 || true
+          curl -fsS https://dl.google.com/android/repository/sys-img/android/sys-img2-3.xml | tr -d '\r' | grep -A1 -B3 'x86_64-34_' | tail -30 || true
 
       - name: Boot the emulator
         timeout-minutes: 12
@@ -131,3 +151,14 @@ jobs:
           timeout 30 adb shell dumpsys jobscheduler | grep -A4 "$ANDROID_PACKAGE/" | head -60 || true
           timeout 60 adb logcat -d -v time > "$RUNNER_TEMP/logcat.txt" || true
           grep -E 'ReactNativeJS|WM-|expo|TaskManager|BackgroundTask|AndroidRuntime|holdsend' "$RUNNER_TEMP/logcat.txt" | tail -300 || true
+
+      - name: Keep the logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: android-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/logcat.txt
+            ${{ runner.temp }}/emulator.log
+          if-no-files-found: ignore
+          retention-days: 14
