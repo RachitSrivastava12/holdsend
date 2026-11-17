@@ -40,6 +40,14 @@ jobs:
     env:
       ANDROID_PACKAGE: io.github.zyakuhq.holdsend.notes
       SYSTEM_IMAGE: "system-images;android-34;default;x86_64"
+      # The emulator is pinned: one build from Google's download list, checked
+      # against the SHA-1 that list gives. To update, pick a build from
+      # https://dl.google.com/android/repository/repository2-3.xml.
+      EMULATOR_BUILD: "16916650"
+      EMULATOR_SHA1: 4fabd9f4550607092819d4e39811e2cb8694135c
+      # sdkmanager cannot pin a system image revision; a different one shows
+      # a warning, so a change is seen before anyone has to guess at a failure.
+      SYSTEM_IMAGE_REVISION: "2"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -101,20 +109,24 @@ jobs:
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           tools="$ANDROID_HOME/cmdline-tools/latest/bin"
           yes | "$tools/sdkmanager" --licenses > /dev/null || true
-          "$tools/sdkmanager" emulator platform-tools "$SYSTEM_IMAGE" > /dev/null
+          "$tools/sdkmanager" platform-tools "$SYSTEM_IMAGE" > /dev/null
+          # Replace whatever emulator the runner or sdkmanager left with the pinned build.
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/emulator.zip" "https://dl.google.com/android/repository/emulator-linux_x64-$EMULATOR_BUILD.zip"
+          echo "$EMULATOR_SHA1  $RUNNER_TEMP/emulator.zip" | sha1sum -c -
+          rm -rf "$ANDROID_HOME/emulator"
+          unzip -q "$RUNNER_TEMP/emulator.zip" -d "$ANDROID_HOME"
+          rm "$RUNNER_TEMP/emulator.zip"
+          echo "Emulator: $(grep Pkg.Revision "$ANDROID_HOME/emulator/source.properties") (build $EMULATOR_BUILD)"
+          image_revision=$(sed -n 's/^Pkg.Revision=//p' "$ANDROID_HOME/system-images/android-34/default/x86_64/source.properties" | tr -d '\r')
+          echo "System image: $SYSTEM_IMAGE revision $image_revision"
+          if [ "$image_revision" != "$SYSTEM_IMAGE_REVISION" ]; then
+            echo "::warning title=System image changed::$SYSTEM_IMAGE is revision $image_revision, the workflow expects $SYSTEM_IMAGE_REVISION. If this job fails, check this first."
+          fi
           echo no | "$tools/avdmanager" create avd --name ci --package "$SYSTEM_IMAGE" --force
           "$ANDROID_HOME/emulator/emulator" -accel-check
           # A hardware keyboard, so no on-screen keyboard covers the app's buttons.
           echo "hw.keyboard=yes" >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
           "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx ci
-
-      - name: Versions of the emulator and the system image (temporary, for pinning)
-        continue-on-error: true
-        run: |
-          grep -E 'Pkg.Revision' "$ANDROID_HOME/emulator/source.properties" || true
-          grep -E 'Pkg.Revision|SystemImage' "$ANDROID_HOME/system-images/android-34/default/x86_64/source.properties" || true
-          curl -fsS https://dl.google.com/android/repository/repository2-3.xml | tr -d '\r' | grep -B2 -A2 'emulator-linux_x64' | tail -40 || true
-          curl -fsS https://dl.google.com/android/repository/sys-img/android/sys-img2-3.xml | tr -d '\r' | grep -A1 -B3 'x86_64-34_' | tail -30 || true
 
       - name: Boot the emulator
         timeout-minutes: 12

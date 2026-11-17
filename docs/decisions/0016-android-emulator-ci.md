@@ -29,4 +29,11 @@ Android 14 also prints JobScheduler jobs with a namespace (`JOB androidx.work.sy
 
 ## Reviewed
 
-Reviewed by a separate agent before merge. Fixed: the "no screen" check could pass on an empty dump (now it also checks why the process started), exactly-once leaned on the server alone (now one key per note and a second forced run must send nothing), the path filters missed the server package and the notes example, and closing the keyboard with BACK could leave the app (the emulator now has a hardware keyboard and BACK is sent only when the keyboard shows). Not done yet: pinning the emulator version, caching Gradle, and saving the logs as an artifact.
+Reviewed by a separate agent before merge. Fixed: the "no screen" check could pass on an empty dump (now it also checks why the process started), exactly-once leaned on the server alone (now one key per note and a second forced run must send nothing), the path filters missed the server package and the notes example, and closing the keyboard with BACK could leave the app (the emulator now has a hardware keyboard and BACK is sent only when the keyboard shows). The follow-ups it listed (pinning the emulator, caching Gradle, keeping the logs) were done on 2026-11-17; see below.
+
+## Follow-ups (2026-11-17)
+
+- The emulator is pinned to one build (`EMULATOR_BUILD` in the workflow), downloaded from Google and checked against the SHA-1 in Google's download list. Before, `sdkmanager` installed whatever was newest, so a new emulator release could break the job with no change here.
+- The system image cannot be pinned through `sdkmanager`. The job prints its revision and shows a warning when it differs from `SYSTEM_IMAGE_REVISION`, so a change is visible before anyone guesses at a failure.
+- Gradle's downloads and distribution are cached (`actions/cache`, key from the lockfile, the example's config and its config plugins). Tasks still run every time; there is no Gradle build cache, so a cache hit cannot hide a broken build.
+- On failure, `logcat.txt` and the emulator's own log are kept as a workflow artifact for 14 days.
