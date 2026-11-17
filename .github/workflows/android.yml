@@ -109,20 +109,21 @@ jobs:
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           tools="$ANDROID_HOME/cmdline-tools/latest/bin"
           yes | "$tools/sdkmanager" --licenses > /dev/null || true
-          "$tools/sdkmanager" platform-tools "$SYSTEM_IMAGE" > /dev/null
-          # Replace whatever emulator the runner or sdkmanager left with the pinned build.
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/emulator.zip" "https://dl.google.com/android/repository/emulator-linux_x64-$EMULATOR_BUILD.zip"
-          echo "$EMULATOR_SHA1  $RUNNER_TEMP/emulator.zip" | sha1sum -c -
-          rm -rf "$ANDROID_HOME/emulator"
-          unzip -q "$RUNNER_TEMP/emulator.zip" -d "$ANDROID_HOME"
-          rm "$RUNNER_TEMP/emulator.zip"
-          echo "Emulator: $(grep Pkg.Revision "$ANDROID_HOME/emulator/source.properties") (build $EMULATOR_BUILD)"
+          "$tools/sdkmanager" emulator platform-tools "$SYSTEM_IMAGE" > /dev/null
           image_revision=$(sed -n 's/^Pkg.Revision=//p' "$ANDROID_HOME/system-images/android-34/default/x86_64/source.properties" | tr -d '\r')
           echo "System image: $SYSTEM_IMAGE revision $image_revision"
           if [ "$image_revision" != "$SYSTEM_IMAGE_REVISION" ]; then
             echo "::warning title=System image changed::$SYSTEM_IMAGE is revision $image_revision, the workflow expects $SYSTEM_IMAGE_REVISION. If this job fails, check this first."
           fi
           echo no | "$tools/avdmanager" create avd --name ci --package "$SYSTEM_IMAGE" --force
+          # avdmanager needs sdkmanager's emulator package to create the device; then
+          # the emulator that runs it is replaced with the pinned build.
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/emulator.zip" "https://dl.google.com/android/repository/emulator-linux_x64-$EMULATOR_BUILD.zip"
+          echo "$EMULATOR_SHA1  $RUNNER_TEMP/emulator.zip" | sha1sum -c -
+          rm -rf "$ANDROID_HOME/emulator"
+          unzip -q "$RUNNER_TEMP/emulator.zip" -d "$ANDROID_HOME"
+          rm "$RUNNER_TEMP/emulator.zip"
+          echo "Emulator: $(grep Pkg.Revision "$ANDROID_HOME/emulator/source.properties") (build $EMULATOR_BUILD)"
           "$ANDROID_HOME/emulator/emulator" -accel-check
           # A hardware keyboard, so no on-screen keyboard covers the app's buttons.
           echo "hw.keyboard=yes" >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
