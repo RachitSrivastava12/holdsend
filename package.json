@@ -24,11 +24,12 @@
     "size": "node scripts/size-check.mjs",
     "api": "node scripts/api-surface.mjs",
     "scan:pii": "node scripts/pii-scan.mjs",
-    "check": "npm run lint && npm run build && npm run typecheck && npm test && npm run size && npm run api && npm run check:packages && npm run scan:pii && npm run scan:secrets",
+    "check": "npm run lint && npm run build && npm run typecheck && npm test && npm run size && npm run api && npm run check:packages && npm run scan:pii && npm run scan:secrets && npm run check:commits",
     "test:soak": "HOLDSEND_RUNS=3000 vitest run never-twice",
     "e2e": "npm run e2e --workspace holdsend-example-notes && npm run e2e --workspace holdsend-example-react && npm run e2e --workspace holdsend-example-expo",
     "check:packages": "node scripts/check-packages.mjs",
-    "scan:secrets": "node scripts/secret-scan.mjs"
+    "scan:secrets": "node scripts/secret-scan.mjs",
+    "check:commits": "node scripts/commit-email-check.mjs && node scripts/commit-message-check.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.11",

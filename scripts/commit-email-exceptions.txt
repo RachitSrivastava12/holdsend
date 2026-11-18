@@ -1,0 +1,6 @@
+# Commits on main that carry a company email address and cannot be fixed
+# without rewriting published history (decision 0017). Full SHAs only. Each
+# line removes one exact commit from the check on main; pull requests never
+# use this list. Remove a line if main is ever rewritten.
+
+d3bf28db551de9e4700e12af16bf22bd8db75e27 # 2026-11-15, merge of #68 through GitHub's merge button

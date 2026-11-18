@@ -140,15 +140,10 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          # No commit may carry a company address as author or committer: the
-          # pull request's commits, or on main the whole history. The
-          # addresses are not printed: logs are public.
-          if [ -n "$BASE" ]; then RANGE="$BASE..$HEAD"; else RANGE="HEAD"; fi
-          if git log --format='%ae%n%ce' "$RANGE" | grep -qi '@zyaku\.com$'; then
-            echo "A commit uses a company email address. Use a GitHub noreply address."
-            exit 1
-          fi
-          echo "commit emails ok"
+          # The pull request's commits, or on main the whole history minus the
+          # exact commits listed in scripts/commit-email-exceptions.txt
+          # (decision 0017). Addresses are never printed: logs are public.
+          if [ -n "$BASE" ]; then node scripts/commit-email-check.mjs "$BASE..$HEAD"; else node scripts/commit-email-check.mjs; fi
       - name: No tool attribution in commit messages
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
