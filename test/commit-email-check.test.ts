@@ -14,7 +14,7 @@ describe("commit email check", () => {
     const entries = [
       { sha: A, author: company, committer: ok },
       { sha: B, author: ok, committer: company.toUpperCase() },
-      { sha: C, author: ok, committer: "noreply@github.com" },
+      { sha: C, author: ok, committer: "someone@example.com" },
     ];
     expect(findCompanyEmails(entries, new Set())).toEqual([A, B]);
   });
