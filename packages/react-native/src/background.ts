@@ -34,7 +34,7 @@ export interface BackgroundFlushOptions {
 }
 
 export interface BackgroundFlushResult {
-  /** What happened: everything sent or nothing to do, some items wait, time ran out, or the flush threw. If the outbox's `isOnline` says offline, the flush does nothing and this is "done". */
+  /** What happened: everything sent or nothing to do, some items wait, time ran out, or the flush threw. If the outbox's `isOnline` says offline while items could be sent, this is "waiting". */
   outcome: "done" | "waiting" | "out-of-time" | "failed";
   /** True when asking the system to run the task again soon makes sense. */
   retryLater: boolean;
@@ -57,7 +57,7 @@ export async function runBackgroundFlush<P>(
   try {
     const won = await Promise.race([flush, timeout]);
     if (won === "timeout") return { outcome: "out-of-time", retryLater: true };
-    const waiting = won.retry > 0 || won.busy > 0 || won.nextCheckInMs !== undefined;
+    const waiting = won.retry > 0 || won.busy > 0 || won.nextCheckInMs !== undefined || won.deferredOffline === true;
     return { outcome: waiting ? "waiting" : "done", retryLater: waiting, report: won };
   } catch (error) {
     return { outcome: "failed", retryLater: true, error };
