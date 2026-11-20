@@ -93,10 +93,12 @@ function noteJson(row) {
 
 export async function createNotesApp(options = {}) {
   const database = await openDatabase(options.databaseUrl);
-  // One statement per query: PGlite's query() takes a single statement.
-  for (const statement of `${postgresSchema()}\n${NOTES_SCHEMA}\n${postgresDraftSchema()}`.split(";").map((s) => s.trim()).filter(Boolean)) {
-    await database.db.query(statement);
-  }
+  // Sent whole (postgresSchema() holds a DO block, so it cannot be split on
+  // ";"): PGlite takes several statements through exec(), node-postgres
+  // through query() without parameters.
+  const schema = `${postgresSchema()}\n${NOTES_SCHEMA}\n${postgresDraftSchema()}`;
+  if (typeof database.db.exec === "function") await database.db.exec(schema);
+  else await database.db.query(schema);
   const store = new PostgresIdempotencyStore({ db: database.db, transaction: database.transaction });
   const draftLog = new PostgresDraftLog({ db: database.db });
 
