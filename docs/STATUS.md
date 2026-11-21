@@ -2,10 +2,11 @@
 
 The project's working memory. Every work session reads this first and updates it last.
 
-Last updated: 2026-11-20 (issue #54 fixed: schema takes no table lock at startup, decision 0019)
+Last updated: 2026-11-21 (review before 0.3.0: approve() clears lastAttempt, #86)
 
 ## Done
 
+- Review before 0.3.0 (2026-11-21, [#86](https://github.com/zyakuhq/holdsend/pull/86), [write-up](audits/2026-11-21-pre-0.3-review.md)): a separate agent read every package change since 0.2.0 and ran the real Postgres tests on Postgres 16. Nothing loses or double-sends. Fixed: `approve()` left `lastAttempt` in place (an approved item could still say `refused`); `approve()` and `retry()` now share one reset, with a test that fails on the old code. Documented and pinned by a test: a sender that dies on the last allowed attempt leaves no `lastAttempt`. Core 5,252 of 5,376 bytes.
 - Schema at startup takes no table lock (2026-11-20, [#84](https://github.com/zyakuhq/holdsend/pull/84), [decision 0019](decisions/0019-schema-without-boot-locks.md), issue [#54](https://github.com/zyakuhq/holdsend/issues/54)): `postgresSchema()` looks up its column and indexes in the catalog inside a `DO` block and creates them only when missing, so a restart while a backup or long transaction holds the table no longer queues claims. An advisory lock lets two instances start at once (one used to fail, also on the old text). The text must be sent whole now; the notes example no longer splits it. Unreleased. Real Postgres tests in CI's `postgres` job fail on the old code. Reviewed by a separate agent; three findings (CI skipped the test, the startup race, a pooled `SET lock_timeout` trap in the README) fixed.
 - Offline mid-flush (2026-11-19, [decision 0018](decisions/0018-offline-mid-flush.md), reported with tests in outside pull request #81): a flush that stopped offline with sendable items left now sets `FlushReport.deferredOffline`; `onBackgroundSync` rejects so the browser may retry, and `runBackgroundFlush` says `waiting`. Unreleased. Core 5,256 of 5,376 bytes (+40; the pull request's version cost 100). Tests fail on the old code (eight, plus one that catches a check that ignores whether the item is still sendable). Reviewed twice by separate agents (the pull request, then this version); findings fixed.
 - `main` CI green again (2026-11-18, [#79](https://github.com/zyakuhq/holdsend/pull/79), [decision 0017](decisions/0017-commit-email-exceptions.md)): from 15 to 18 November the "Secret and PII scan" job failed on every push to `main`, because the merge of #68 through GitHub's merge button carries a company address. Pull requests passed, since their range never includes it. The check is now `scripts/commit-email-check.mjs`, with seven tests, and runs in `npm run check` too. On `main` it skips only the full SHAs in `scripts/commit-email-exceptions.txt` (one). Pull requests never use the list, a stale entry fails, and addresses are never printed. Reviewed by a separate agent; four findings fixed.
@@ -78,7 +79,7 @@ The four gates to 1.0 are in [production.md](production.md#what-10-needs-before-
 
 ## After that
 
-- The last three moderate dev-dependency advisories need a major Expo upgrade of the Expo example; do it with the Android job watching.
+- The last three moderate dev-dependency advisories (`minimatch` under `@expo/fingerprint`) are not fixed by any Expo release yet: Expo 58 is the newest SDK and still pulls `minimatch` 10 (checked 2026-11-21). A scoped npm override did not resolve cleanly (npm fell back to the hoisted `minimatch` 3). Wait for Expo; dev only, nothing published is affected.
 
 - Conflict handling for one draft edited on two devices (append-only updates with a reason). This is the hard part; say so.
 
@@ -89,6 +90,7 @@ The four gates to 1.0 are in [production.md](production.md#what-10-needs-before-
 
 ## Resolved
 
+- 2026-11-20: issue #54 closed (fixed by #84).
 - 2026-10-25: security@zyaku.com receives mail (confirmed by the project lead).
 - 2026-10-25: `zyakuhq/holdsend` created by the project lead.
 - 2026-10-25: private vulnerability reporting is enabled on the repository (confirmed by the project lead).
@@ -97,13 +99,13 @@ The four gates to 1.0 are in [production.md](production.md#what-10-needs-before-
 ## Open questions for the project lead
 
 - Commit `d3bf28d` (merge of #68, 2026-11-15) shows a company email address as author in the public history. CI no longer fails on it (decision 0017), but only a rewrite of `main` removes it, as on 2026-10-25. A rewrite breaks open pull requests and forks (including #71). Your call; if you rewrite, delete its line from `scripts/commit-email-exceptions.txt`. To avoid a repeat, merge by fast-forward, or check that the account's commit email is the noreply address before using the merge button (the merge of #78 already did).
-- Issue [#54](https://github.com/zyakuhq/holdsend/issues/54) is fixed by #84 (2026-11-20) but left open: no comment was posted; the project lead decides whether to answer and close it.
 - Outside pull request [#71](https://github.com/zyakuhq/holdsend/pull/71) (2026-11-16): moves Postgres schema setup out of the notes example's startup into a migration script with a lock timeout, and changes the server README and two doc comments to match. Read on 2026-11-17: the idea is sound and worth taking. Before it can merge: it is based on history from before `main` was rewritten, so as it stands it would undo about twenty files (including the Android job); it needs a rebase onto current `main`. Its README section sits after the licence heading. Its CI has not run (first-time contributor runs wait for a maintainer's approval in Actions). Since #84 (2026-11-20) the library half of issue #54 is fixed in `postgresSchema()` itself, so #71 now only needs to move the example's setup into a migration. No comment was posted; the project lead decides whether to answer the contributor.
 - Outside pull request [#81](https://github.com/zyakuhq/holdsend/pull/81): its fix landed in our smaller form on 2026-11-19 (see Done), credited in the CHANGELOG and decision 0018. The pull request is still open; the project lead decides whether to close it with a thank-you. No comment was posted.
 - Release 0.3.0: the work planned for 0.3 is in `main` (drafts, Android background task on an emulator, low-end notes). Version bump and release notes in one pull request once the project lead says go, then tag and the two approvals.
 
 ## Notes for maintainers
 
+- Branch `fix/approve-clears-last-attempt` is an unmerged earlier copy of #86 whose commit message fails the message check; it can be deleted.
 - The never-twice soak at 3000 runs needs `--testTimeout=600000` (the default 30 s is too short for the slow-store case).
 - Never put Zyaku code, data, names or configuration in this repository. Write everything fresh; do not write reference code from memory either (see the audit's clean-room note). Run `npm run check` and gitleaks before every push.
 - Merge by fast-forwarding `main` to the tested pull-request commit (not GitHub's squash or merge button, which can stamp the account email; that is how `d3bf28d` happened). `npm run check` now runs the commit email and commit message checks locally too.
