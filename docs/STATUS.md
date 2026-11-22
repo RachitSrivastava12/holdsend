@@ -2,10 +2,11 @@
 
 The project's working memory. Every work session reads this first and updates it last.
 
-Last updated: 2026-11-21 (review before 0.3.0: approve() clears lastAttempt, #86)
+Last updated: 2026-11-22 (packed tarballs smoke-tested before a release, #88)
 
 ## Done
 
+- Packed tarballs smoke-tested before a release (2026-11-22, [#88](https://github.com/zyakuhq/holdsend/pull/88), [decision 0020](decisions/0020-smoke-test-the-tarballs.md)): `npm run smoke:packed` installs the four `npm pack` tarballs in an empty folder outside the repository, checks there is one `@holdsend/core`, and runs `scripts/smoke-node.mjs` there. CI's oldest-Node job runs it on Node 22 and 20.0.0; [releasing.md](releasing.md) runs it as step 3. Checked to fail on a core bump the other packages missed and on a subpath left out of a tarball. Tooling only; not reviewed by a separate agent (no package or test code changed).
 - Review before 0.3.0 (2026-11-21, [#86](https://github.com/zyakuhq/holdsend/pull/86), [write-up](audits/2026-11-21-pre-0.3-review.md)): a separate agent read every package change since 0.2.0 and ran the real Postgres tests on Postgres 16. Nothing loses or double-sends. Fixed: `approve()` left `lastAttempt` in place (an approved item could still say `refused`); `approve()` and `retry()` now share one reset, with a test that fails on the old code. Documented and pinned by a test: a sender that dies on the last allowed attempt leaves no `lastAttempt`. Core 5,252 of 5,376 bytes.
 - Schema at startup takes no table lock (2026-11-20, [#84](https://github.com/zyakuhq/holdsend/pull/84), [decision 0019](decisions/0019-schema-without-boot-locks.md), issue [#54](https://github.com/zyakuhq/holdsend/issues/54)): `postgresSchema()` looks up its column and indexes in the catalog inside a `DO` block and creates them only when missing, so a restart while a backup or long transaction holds the table no longer queues claims. An advisory lock lets two instances start at once (one used to fail, also on the old text). The text must be sent whole now; the notes example no longer splits it. Unreleased. Real Postgres tests in CI's `postgres` job fail on the old code. Reviewed by a separate agent; three findings (CI skipped the test, the startup race, a pooled `SET lock_timeout` trap in the README) fixed.
 - Offline mid-flush (2026-11-19, [decision 0018](decisions/0018-offline-mid-flush.md), reported with tests in outside pull request #81): a flush that stopped offline with sendable items left now sets `FlushReport.deferredOffline`; `onBackgroundSync` rejects so the browser may retry, and `runBackgroundFlush` says `waiting`. Unreleased. Core 5,256 of 5,376 bytes (+40; the pull request's version cost 100). Tests fail on the old code (eight, plus one that catches a check that ignores whether the item is still sendable). Reviewed twice by separate agents (the pull request, then this version); findings fixed.
@@ -65,8 +66,6 @@ Last updated: 2026-11-21 (review before 0.3.0: approve() clears lastAttempt, #86
 
 - Phase 3, one draft on two devices (unreleased): `readDraft` (2026-11-04) and the server helper (2026-11-05: `acceptDraftUpdate`, `MemoryDraftLog`, `PostgresDraftLog`), reviewed by a separate agent, findings fixed ([guide](drafts.md), [decision 0009](decisions/0009-two-device-drafts.md)). Before 0.3, `@holdsend/server` must depend on a core release that has `./drafts` (0.2.0 does this, decision 0011). Device-side helpers `editLinks` and `resolveLinks` added 2026-11-06 (small pure functions, not yet reviewed by a separate agent). Conflict screen added 2026-11-07 in the notes example at `/drafts` (four browser tests, reviewed by a separate agent, findings fixed). Whole-feature audit by a separate reviewer done 2026-11-08, findings fixed with tests that fail on the old code ([decision 0009](decisions/0009-two-device-drafts.md)); `resolveLinks` now takes the ids on screen and throws on a non-head. Still to do: re-read by a second reviewer is not needed unless the API changes again.
 
-- Phase 3 design note for one draft on two devices: [decision 0009](decisions/0009-two-device-drafts.md), proposed, no code yet (2026-11-03).
-
 - Phase 2, the emergency module (v0.2): code, docs, example and audit done. The core is at 5,216 of its 5,376-byte budget (decision 0014).
 
 ## Next tasks
@@ -80,8 +79,6 @@ The four gates to 1.0 are in [production.md](production.md#what-10-needs-before-
 ## After that
 
 - The last three moderate dev-dependency advisories (`minimatch` under `@expo/fingerprint`) are not fixed by any Expo release yet: Expo 58 is the newest SDK and still pulls `minimatch` 10 (checked 2026-11-21). A scoped npm override did not resolve cleanly (npm fell back to the hoisted `minimatch` 3). Wait for Expo; dev only, nothing published is affected.
-
-- Conflict handling for one draft edited on two devices (append-only updates with a reason). This is the hard part; say so.
 
 ## Blockers
 
