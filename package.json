@@ -28,6 +28,7 @@
     "test:soak": "HOLDSEND_RUNS=3000 vitest run never-twice",
     "e2e": "npm run e2e --workspace holdsend-example-notes && npm run e2e --workspace holdsend-example-react && npm run e2e --workspace holdsend-example-expo",
     "check:packages": "node scripts/check-packages.mjs",
+    "smoke:packed": "node scripts/smoke-packed.mjs",
     "scan:secrets": "node scripts/secret-scan.mjs",
     "check:commits": "node scripts/commit-email-check.mjs && node scripts/commit-message-check.mjs"
   },

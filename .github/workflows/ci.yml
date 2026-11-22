@@ -42,12 +42,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # The same smoke test against the tarballs npm would publish, installed
+      # in an empty folder outside the repository (decision 0020).
+      - name: Packed tarballs installed and smoke-tested
+        run: node scripts/smoke-packed.mjs --out "$RUNNER_TEMP/packed"
       # The packages say "node": ">=20"; the test tools need a newer Node,
       # so the built packages are loaded and exercised on 20.0.0 directly.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20.0.0
       - run: node scripts/smoke-node.mjs
+      - name: Packed tarballs on Node 20.0.0
+        working-directory: ${{ runner.temp }}/packed
+        run: node smoke-node.mjs
 
   postgres:
     name: Real Postgres races
