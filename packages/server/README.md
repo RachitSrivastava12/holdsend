@@ -28,6 +28,7 @@ import { PostgresIdempotencyStore, pgPoolTransaction, postgresSchema, handleIdem
 
 const pool = new pg.Pool();
 // Apply postgresSchema() through your deployment migration before starting the app.
+// Send the SQL whole: it contains a PostgreSQL DO block.
 // Do not execute schema DDL on every application startup.
 
 const store = new PostgresIdempotencyStore({ db: pool, transaction: pgPoolTransaction(pool) });

@@ -106,6 +106,12 @@ export interface FlushReport {
   /** Items that became stuck in this flush. */
   stuck: number;
   /**
+   * The device went offline during the flush and items it could send were
+   * still waiting at the end of that pass. A later pass in the same flush may
+   * have sent them since, so treat it as "look again", not as a count.
+   */
+  deferredOffline?: boolean;
+  /**
    * Set when items are held by another sender's claim: look again after this
    * many ms. If that sender died, its claim will then have gone stale and
    * this sender can take the item over.
@@ -266,6 +272,7 @@ export class Outbox<P = unknown> {
           total.retry += report.retry;
           total.busy += report.busy;
           total.stuck += report.stuck;
+          if (report.deferredOffline) total.deferredOffline = true;
           if (report.nextCheckInMs !== undefined) {
             total.nextCheckInMs = Math.min(total.nextCheckInMs ?? Infinity, report.nextCheckInMs);
           }
@@ -301,8 +308,12 @@ export class Outbox<P = unknown> {
       .sort((a, b) => a.writtenAt - b.writtenAt)
       .map((i) => i.key);
 
+    let offline = false;
     for (const key of candidates) {
-      if (!this.isOnline()) break;
+      if (!this.isOnline()) {
+        offline = true;
+        break;
+      }
       const token = this.makeKey();
       const claimed = await this.store.update((items) => claim(items, key, token, this.now(), this.policy, owner));
       if (!claimed) continue;
@@ -323,7 +334,9 @@ export class Outbox<P = unknown> {
 
     const waitMs = await this.store.update((items) => {
       pruneSent(items);
-      return nextWakeMs(items, this.now(), this.policy, owner);
+      const now = this.now();
+      if (offline && items.some((i) => isSendable(i, now, this.policy, owner))) report.deferredOffline = true;
+      return nextWakeMs(items, now, this.policy, owner);
     });
     if (waitMs !== undefined) report.nextCheckInMs = waitMs;
     return report;

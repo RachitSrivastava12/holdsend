@@ -1,0 +1,177 @@
+name: Android emulator
+
+# Builds the Expo example as a release APK, installs it on an Android
+# emulator and checks that its background task sends a waiting note once
+# (examples/expo/test/android-background.mjs). Slow (a native build and an
+# emulator boot), so it runs when the code it covers changes, on main, and
+# by hand.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/expo/**"
+      - "examples/notes/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "examples/expo/**"
+      - "examples/notes/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  background-task:
+    name: Expo example background task on an emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ANDROID_PACKAGE: io.github.zyakuhq.holdsend.notes
+      SYSTEM_IMAGE: "system-images;android-34;default;x86_64"
+      # The emulator is pinned: one build from Google's download list, checked
+      # against the SHA-1 that list gives. To update, pick a build from
+      # https://dl.google.com/android/repository/repository2-3.xml.
+      EMULATOR_BUILD: "16916650"
+      EMULATOR_SHA1: 4fabd9f4550607092819d4e39811e2cb8694135c
+      # sdkmanager cannot pin a system image revision; a different one shows
+      # a warning, so a change is seen before anyone has to guess at a failure.
+      SYSTEM_IMAGE_REVISION: "2"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Generate the Android project
+        working-directory: examples/expo
+        env:
+          CI: 1
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Allow plain http to the emulator's host (this CI build only)
+        working-directory: examples/expo/android
+        # The test server is http://10.0.2.2:3000. A release build refuses
+        # plain http unless the manifest allows it; a real app uses https.
+        run: |
+          manifest=app/src/main/AndroidManifest.xml
+          if ! grep -q 'usesCleartextTraffic="true"' "$manifest"; then
+            sed -i 's/<application /<application android:usesCleartextTraffic="true" /' "$manifest"
+          fi
+          grep -q 'usesCleartextTraffic="true"' "$manifest"
+
+      - name: Cache Gradle
+        # Gradle's downloads, the Gradle distribution and its transform
+        # caches. Tasks still run (no build cache), so a cache hit cannot
+        # hide a broken build. The key changes with the lockfile, the
+        # example's config and its config plugins.
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json', 'examples/expo/app.json', 'examples/expo/plugins/**') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Build the release APK (x86_64 only)
+        working-directory: examples/expo/android
+        env:
+          EXPO_PUBLIC_NOTES_URL: http://10.0.2.2:3000
+          NODE_ENV: production
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon --stacktrace
+
+      - name: Install the emulator and a system image
+        timeout-minutes: 15
+        run: |
+          # Let this user use KVM, so the emulator runs at full speed.
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          # One place for the virtual device, for avdmanager and the emulator alike.
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          tools="$ANDROID_HOME/cmdline-tools/latest/bin"
+          yes | "$tools/sdkmanager" --licenses > /dev/null || true
+          "$tools/sdkmanager" emulator platform-tools "$SYSTEM_IMAGE" > /dev/null
+          image_revision=$(sed -n 's/^Pkg.Revision=//p' "$ANDROID_HOME/system-images/android-34/default/x86_64/source.properties" | tr -d '\r')
+          echo "System image: $SYSTEM_IMAGE revision $image_revision"
+          if [ "$image_revision" != "$SYSTEM_IMAGE_REVISION" ]; then
+            echo "::warning title=System image changed::$SYSTEM_IMAGE is revision $image_revision, the workflow expects $SYSTEM_IMAGE_REVISION. If this job fails, check this first."
+          fi
+          echo no | "$tools/avdmanager" create avd --name ci --package "$SYSTEM_IMAGE" --force
+          # avdmanager needs sdkmanager's emulator package to create the device; then
+          # the emulator that runs it is replaced with the pinned build.
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/emulator.zip" "https://dl.google.com/android/repository/emulator-linux_x64-$EMULATOR_BUILD.zip"
+          echo "$EMULATOR_SHA1  $RUNNER_TEMP/emulator.zip" | sha1sum -c -
+          rm -rf "$ANDROID_HOME/emulator"
+          unzip -q "$RUNNER_TEMP/emulator.zip" -d "$ANDROID_HOME"
+          rm "$RUNNER_TEMP/emulator.zip"
+          echo "Emulator: $(grep Pkg.Revision "$ANDROID_HOME/emulator/source.properties") (build $EMULATOR_BUILD)"
+          "$ANDROID_HOME/emulator/emulator" -accel-check
+          # A hardware keyboard, so no on-screen keyboard covers the app's buttons.
+          echo "hw.keyboard=yes" >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx ci
+
+      - name: Boot the emulator
+        timeout-minutes: 12
+        run: |
+          nohup "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          emulator_pid=$!
+          booted() { [ "$(timeout 10 adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; }
+          for i in $(seq 1 200); do
+            if booted; then break; fi
+            if ! kill -0 "$emulator_pid" 2> /dev/null; then echo "The emulator exited."; tail -80 "$RUNNER_TEMP/emulator.log"; exit 1; fi
+            sleep 3
+          done
+          booted || { echo "Not booted after 10 minutes."; tail -80 "$RUNNER_TEMP/emulator.log"; exit 1; }
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell wm dismiss-keyguard || true
+
+      - name: Install the app
+        timeout-minutes: 5
+        run: adb install -r examples/expo/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: The background task sends a waiting note once
+        timeout-minutes: 10
+        run: node examples/expo/test/android-background.mjs
+
+      - name: Android log (on failure)
+        if: failure()
+        run: |
+          tail -40 "$RUNNER_TEMP/emulator.log" || true
+          if [ "$(timeout 10 adb get-state 2> /dev/null)" != device ]; then echo "No emulator to read a log from."; exit 0; fi
+          echo "JobScheduler entries for the app:"
+          timeout 30 adb shell dumpsys jobscheduler | grep -A4 "$ANDROID_PACKAGE/" | head -60 || true
+          timeout 60 adb logcat -d -v time > "$RUNNER_TEMP/logcat.txt" || true
+          grep -E 'ReactNativeJS|WM-|expo|TaskManager|BackgroundTask|AndroidRuntime|holdsend' "$RUNNER_TEMP/logcat.txt" | tail -300 || true
+
+      - name: Keep the logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: android-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/logcat.txt
+            ${{ runner.temp }}/emulator.log
+          if-no-files-found: ignore
+          retention-days: 14

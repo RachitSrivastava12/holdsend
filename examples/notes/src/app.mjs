@@ -76,14 +76,10 @@ function noteJson(row) {
 export async function createNotesApp(options = {}) {
   const database = await openDatabase(options.databaseUrl);
   // PGlite is ephemeral, so initialize its schema on every app creation.
-  // A real Postgres database must be migrated separately before the server
-  // starts. Never run schema DDL on every application instance startup:
-  // waiting DDL can queue incoming idempotency claims behind it.
+  // Real PostgreSQL must be migrated before application startup.
   if (!options.databaseUrl) {
-    // One statement per query: PGlite's query() takes a single statement.
-    for (const statement of `${postgresSchema()}\n${NOTES_SCHEMA}\n${postgresDraftSchema()}`.split(";").map((s) => s.trim()).filter(Boolean)) {
-      await database.db.query(statement);
-    }
+    const schema = `${postgresSchema()}\n${NOTES_SCHEMA}\n${postgresDraftSchema()}`;
+    await database.db.exec(schema);
   }
   const store = new PostgresIdempotencyStore({ db: database.db, transaction: database.transaction });
   const draftLog = new PostgresDraftLog({ db: database.db });

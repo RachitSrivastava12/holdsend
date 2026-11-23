@@ -1,11 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error: a plain JavaScript build script, without type declarations.
-import { buildSite, slugify } from "../scripts/build-site.mjs";
+import { buildSite, PAGES, slugify } from "../scripts/build-site.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -36,6 +36,15 @@ describe("the docs site", () => {
         if (anchor && target.endsWith(".html")) {
           expect(readFileSync(target, "utf8"), `${page} links to missing anchor ${href}`).toContain(`id="${anchor}"`);
         }
+      }
+    }
+  });
+
+  it("lists every decision and every audit", () => {
+    const listed = new Set<string>(PAGES.flatMap(([, pages]: [string, [string, string][]]) => pages.map(([, source]) => source)));
+    for (const dir of ["docs/decisions", "docs/audits"]) {
+      for (const name of readdirSync(join(root, dir)).filter((n) => n.endsWith(".md"))) {
+        expect(listed.has(`${dir}/${name}`), `${dir}/${name} is not in PAGES of scripts/build-site.mjs`).toBe(true);
       }
     }
   });

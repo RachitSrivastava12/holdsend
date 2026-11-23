@@ -31,6 +31,12 @@ export default tseslint.config(
     languageOptions: { globals: { process: "readonly" } },
   },
   {
+    // Expo config plugins run in Node as CommonJS when the app is prebuilt.
+    files: ["examples/expo/plugins/**/*.js"],
+    languageOptions: { globals: globals.node, sourceType: "commonjs" },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     files: ["examples/**/src/sw.mjs"],
     languageOptions: { globals: globals.serviceworker },
   },

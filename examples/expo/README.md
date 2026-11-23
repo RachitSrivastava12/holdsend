@@ -42,7 +42,9 @@ While the app is closed:
 - **iPhone:** not at all. iOS gives apps no reliable way to run when the connection returns, so waiting notes go the next time the app is open with a connection, and the app says so.
 - **Android:** maybe. [`src/background-task.js`](src/background-task.js) registers a task with `expo-background-task` that calls `runBackgroundFlush` from `@holdsend/react-native`. Android decides if and when it runs: the example asks for every 15 minutes and Android may wait longer, only with a connection, not while the app is open, later or not at all on a low battery or when the app has been force-stopped. If Android stops it mid-send, nothing is lost or sent twice; the next run sends the same note with the same key.
 
-The background task needs a [development build](https://docs.expo.dev/develop/development-builds/introduction/) (`npx expo run:android`); do not rely on Expo Go for it. To try it, write a note in airplane mode, leave the app, turn airplane mode off and wait (with a debug build, `BackgroundTask.triggerTaskWorkerForTestingAsync()` runs it at once). This has not yet been checked on a real Android phone or emulator, and nothing in CI runs it.
+The background task needs a [development build](https://docs.expo.dev/develop/development-builds/introduction/) (`npx expo run:android`); do not rely on Expo Go for it. To try it, write a note in airplane mode, leave the app, turn airplane mode off and wait (with a debug build, `BackgroundTask.triggerTaskWorkerForTestingAsync()` runs it at once). CI checks it on an Android emulator (see below); it has not been checked on a real Android phone.
+
+**Release builds and R8.** Expo's Android template shrinks release builds with R8, and in this example R8 removed the constructor Room uses for WorkManager's database: the app crashed at launch with `NoSuchMethodException: WorkDatabase_Impl.<init>`. [`plugins/keep-work-database.js`](plugins/keep-work-database.js), listed under `plugins` in `app.json`, adds keep rules when the app is prebuilt. Copy it if your release build crashes the same way.
 
 ## What is where
 
@@ -54,12 +56,16 @@ The background task needs a [development build](https://docs.expo.dev/develop/de
 | [`src/use-outbox-entries.js`](src/use-outbox-entries.js) | `useOutboxEntries`, the same hook as in the [React example](../react). |
 | [`src/App.js`](src/App.js) | The screen: compose, the outbox with Cancel, Send, Try again and Discard, each saying what really happened, and the published list. |
 | [`test/e2e.test.mjs`](test/e2e.test.mjs) | Browser tests of the app's web build, run on every pull request. |
+| [`test/android-background.mjs`](test/android-background.mjs) | The background task on an Android emulator, driven with `adb`. |
+| [`plugins/keep-work-database.js`](plugins/keep-work-database.js) | Config plugin: keeps WorkManager's database constructor in R8-shrunk release builds. |
 
 ## How it is tested
 
 Every pull request bundles the app for the web and runs it in Chromium against the notes server: offline and back, an app restart with notes waiting, a lost answer, cancel, and a note the server refuses. The web build runs the same code (the AsyncStorage store, the auto-flush, the screen) through react-native-web, so these tests check the app's logic.
 
-They do not replace a phone. Nothing in CI runs on an Android or iOS device or emulator yet, so check the steps above on a real phone before you rely on them. One difference is known: in a desktop browser NetInfo does not report going offline, so the web build listens to the browser's own online and offline events instead.
+On Android, a separate workflow (`.github/workflows/android.yml`, when this example or the packages change) builds a release APK, installs it on an Android 14 emulator and runs [`test/android-background.mjs`](test/android-background.mjs): write a note while the server is unreachable, leave the app and kill its process the way Android does, start the server, force the background job, and check the note is published once with no screen of the app open. Forcing the job proves what the task does when it runs, not how often Android runs it.
+
+None of this replaces a phone. Nothing runs on iOS or on a real Android phone in CI, so check the steps above on a real phone before you rely on them. One difference is known: in a desktop browser NetInfo does not report going offline, so the web build listens to the browser's own online and offline events instead.
 
 ## Demo shortcuts
 

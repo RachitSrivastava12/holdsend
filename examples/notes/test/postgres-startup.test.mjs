@@ -20,13 +20,8 @@ test("Postgres app startup does not wait for schema DDL locks", { skip: !url }, 
       postgresSchema(),
       NOTES_SCHEMA,
       postgresDraftSchema(),
-    ];
-
-    for (const ddl of schema) {
-      for (const statement of ddl.split(";").map((part) => part.trim()).filter(Boolean)) {
-        await setup.query(statement);
-      }
-    }
+    ].join("\n");
+    await setup.query(schema);
   } finally {
     await setup.end();
   }

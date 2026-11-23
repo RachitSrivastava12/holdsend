@@ -39,7 +39,7 @@ A test that passes against broken code proves nothing. Each of these deliberate 
 
 ## Real Postgres
 
-`packages/server/test/real-postgres.test.ts` runs in CI against a Postgres 16 server with a pool of ten connections: sixty concurrent copies of one request must create one row, and twenty concurrent takeovers of a stale claim must produce one winner while the old owner's commit fails. Locally it runs when `HOLDSEND_PG_URL` is set.
+`packages/server/test/real-postgres.test.ts` runs in CI against a Postgres 16 server with a pool of ten connections: sixty concurrent copies of one request must create one row, and twenty concurrent takeovers of a stale claim must produce one winner while the old owner's commit fails. Locally it runs when `HOLDSEND_PG_URL` is set. `schema-locks-real-postgres.test.ts` runs in the same job: running `postgresSchema()` again while another transaction has the table open must not wait for it (issue #54).
 
 ## Audit regressions
 
