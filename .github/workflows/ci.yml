@@ -42,12 +42,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # The same smoke test against the tarballs npm would publish, installed
+      # in an empty folder outside the repository (decision 0020).
+      - name: Packed tarballs installed and smoke-tested
+        run: node scripts/smoke-packed.mjs --out "$RUNNER_TEMP/packed"
       # The packages say "node": ">=20"; the test tools need a newer Node,
       # so the built packages are loaded and exercised on 20.0.0 directly.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20.0.0
       - run: node scripts/smoke-node.mjs
+      - name: Packed tarballs on Node 20.0.0
+        working-directory: ${{ runner.temp }}/packed
+        run: node smoke-node.mjs
 
   postgres:
     name: Real Postgres races
@@ -88,6 +95,7 @@ jobs:
           # secretlint-disable-next-line
           HOLDSEND_PG_URL: postgres://postgres:holdsend-ci@localhost:5432/holdsend
         run: node --test examples/notes/test/postgres-startup.test.mjs
+
 
   example:
     name: Example in a real browser
@@ -146,15 +154,10 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          # No commit may carry a company address as author or committer: the
-          # pull request's commits, or on main the whole history. The
-          # addresses are not printed: logs are public.
-          if [ -n "$BASE" ]; then RANGE="$BASE..$HEAD"; else RANGE="HEAD"; fi
-          if git log --format='%ae%n%ce' "$RANGE" | grep -qi '@zyaku\.com$'; then
-            echo "A commit uses a company email address. Use a GitHub noreply address."
-            exit 1
-          fi
-          echo "commit emails ok"
+          # The pull request's commits, or on main the whole history minus the
+          # exact commits listed in scripts/commit-email-exceptions.txt
+          # (decision 0017). Addresses are never printed: logs are public.
+          if [ -n "$BASE" ]; then node scripts/commit-email-check.mjs "$BASE..$HEAD"; else node scripts/commit-email-check.mjs; fi
       - name: No tool attribution in commit messages
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
