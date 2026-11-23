@@ -1,3 +1,4 @@
+// Scenarios first written by an outside contributor in pull request #81.
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
 import { Outbox } from "@holdsend/core";

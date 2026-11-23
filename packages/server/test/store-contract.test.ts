@@ -197,6 +197,25 @@ describe("postgresSchema", () => {
     await pglite.exec(postgresSchema());
   });
 
+  it("adds a missing column and missing indexes to an older table, with a schema-qualified name too", async () => {
+    await pglite.exec("CREATE SCHEMA IF NOT EXISTS older");
+    for (const table of ["older_records", "older.records"]) {
+      await pglite.exec(postgresSchema(table));
+      const [schema, name] = table.includes(".") ? table.split(".") : ["public", table];
+      const indexes = async () =>
+        (await pglite.query<{ indexname: string }>("SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 AND indexname LIKE 'holdsend_%' ORDER BY 1", [schema, name])).rows.map((r) => r.indexname);
+      const before = await indexes();
+      expect(before).toHaveLength(3);
+      const quoted = table.split(".").map((p) => `"${p}"`).join(".");
+      await pglite.exec(`ALTER TABLE ${quoted} DROP COLUMN result_headers`);
+      for (const index of before) await pglite.exec(`DROP INDEX "${schema}"."${index}"`);
+      await pglite.exec(postgresSchema(table));
+      expect(await indexes()).toEqual(before);
+      const column = await pglite.query("SELECT 1 FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_name = 'result_headers'", [schema, name]);
+      expect(column.rows).toHaveLength(1);
+    }
+  });
+
   it("rejects table names that are not plain identifiers", () => {
     expect(() => postgresSchema('x"; DROP TABLE users; --')).toThrow(TypeError);
     expect(() => postgresSchema("app.holdsend_keys")).not.toThrow();

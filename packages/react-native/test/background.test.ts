@@ -44,6 +44,24 @@ describe("runBackgroundFlush", () => {
     expect(result).toMatchObject({ outcome: "waiting", retryLater: true });
   });
 
+  it("asks to run again when the device went offline partway through (pull request #81)", async () => {
+    let online = true;
+    const outbox = new Outbox<Payload>({
+      store: new KeyValueStore(memoryStorage()),
+      isOnline: () => online,
+      policy: { claimRenewMs: 0 },
+      send: async () => {
+        online = false;
+        return { type: "sent" };
+      },
+    });
+    await outbox.add("note", { text: "one" });
+    await outbox.add("note", { text: "two" });
+    const result = await runBackgroundFlush(outbox);
+    expect(result).toMatchObject({ outcome: "waiting", retryLater: true });
+    expect(result.report).toMatchObject({ sent: 1, deferredOffline: true });
+  });
+
   it("stops waiting when the budget is spent, and the item is not lost", async () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));

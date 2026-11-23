@@ -105,7 +105,10 @@ export interface FlushReport {
   busy: number;
   /** Items that became stuck in this flush. */
   stuck: number;
-  /** A pass stopped offline while sendable items for that pass still waited. */
+  /**
+   * The device went offline during a pass and sendable items for that owner
+   * were still waiting when the flush finished. Treat this as "look again".
+   */
   deferredOffline?: boolean;
   /**
    * Set when items are held by another sender's claim: look again after this
@@ -322,10 +325,10 @@ export class Outbox<P = unknown> {
       .sort((a, b) => a.writtenAt - b.writtenAt)
       .map((i) => i.key);
 
-    let stoppedOffline = false;
+    let offline = false;
     for (const key of candidates) {
       if (!this.isOnline()) {
-        stoppedOffline = true;
+        offline = true;
         break;
       }
       const token = this.makeKey();
@@ -348,10 +351,11 @@ export class Outbox<P = unknown> {
 
     const waitMs = await this.store.update((items) => {
       pruneSent(items);
-      return nextWakeMs(items, this.now(), this.policy, owner);
+      const now = this.now();
+      if (offline && items.some((i) => isSendable(i, now, this.policy, owner))) report.deferredOffline = true;
+      return nextWakeMs(items, now, this.policy, owner);
     });
     if (waitMs !== undefined) report.nextCheckInMs = waitMs;
-    if (stoppedOffline) report.deferredOffline = true;
     return report;
   }
 

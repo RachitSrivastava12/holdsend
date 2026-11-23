@@ -87,6 +87,74 @@ describe("Outbox", () => {
     expect(server.created.map((r) => JSON.parse(r.body).text)).toEqual(["first", "added meanwhile"]);
   });
 
+  describe("deferredOffline", () => {
+    it("is set when the device is offline before the first item", async () => {
+      const { outbox, server } = setup({ online: () => false });
+      await outbox.add("post.create", { text: "waiting" });
+      expect(await outbox.flush()).toMatchObject({ sent: 0, deferredOffline: true });
+      expect(server.requests).toBe(0);
+    });
+
+    it("is set when the device goes offline between items", async () => {
+      const checks = [true, false];
+      const { outbox, server } = setup({ online: () => checks.shift() ?? false });
+      await outbox.add("post.create", { text: "first" });
+      await outbox.add("post.create", { text: "second" });
+      expect(await outbox.flush()).toMatchObject({ sent: 1, deferredOffline: true });
+      expect(server.created).toHaveLength(1);
+      expect(await outbox.list()).toHaveLength(1);
+    });
+
+    it("is not set when everything went", async () => {
+      const { outbox } = setup({ online: () => true });
+      await outbox.add("post.create", { text: "one" });
+      expect(await outbox.flush()).toEqual({ sent: 1, retry: 0, busy: 0, stuck: 0 });
+    });
+
+    it("is not set offline when the only item waits for a person", async () => {
+      const { outbox } = setup({ online: () => false });
+      await outbox.add("post.create", { text: "held" }, { decide: () => "hold" });
+      expect((await outbox.flush()).deferredOffline).toBeUndefined();
+    });
+
+    it("is not set offline when the only item waits for its retry delay", async () => {
+      let online = true;
+      const { outbox } = setup({ loseResponses: 1, online: () => online });
+      await outbox.add("post.create", { text: "backing off" });
+      expect((await outbox.flush()).retry).toBe(1);
+      online = false;
+      const report = await outbox.flush();
+      expect(report.deferredOffline).toBeUndefined();
+      expect(report.nextCheckInMs).toBeGreaterThan(0);
+    });
+
+    it("is not set offline for another owner's items", async () => {
+      const { outbox } = setup({ online: () => false });
+      await outbox.add("post.create", { text: "bob's" }, { owner: "bob" });
+      expect((await outbox.flush("alice")).deferredOffline).toBeUndefined();
+    });
+
+    it("is not set when the item left behind offline was cancelled meanwhile", async () => {
+      const checks = [true, false];
+      const store = new MemoryStore<Payload>();
+      let second = "";
+      const outbox: Outbox<Payload> = new Outbox<Payload>({
+        store,
+        isOnline: () => checks.shift() ?? false,
+        policy: { claimRenewMs: 0 },
+        send: async () => {
+          await outbox.cancel(second);
+          return { type: "sent" };
+        },
+      });
+      await outbox.add("post.create", { text: "first" });
+      second = (await outbox.add("post.create", { text: "second" })).key;
+      const report = await outbox.flush();
+      expect(report.sent).toBe(1);
+      expect(report.deferredOffline).toBeUndefined();
+    });
+  });
+
   it("keeps an offline remainder in the aggregate report when another caller queues a pass", async () => {
     const store = new MemoryStore<Payload>();
     let release!: () => void;

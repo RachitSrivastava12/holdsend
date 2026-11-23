@@ -78,11 +78,36 @@ function shortHash(text: string): string {
   return h.toString(36);
 }
 
-/** The DDL for the store's table. Idempotent: safe to run on every deploy. */
+/** A catalog lookup for one index on the table. Reading the catalog takes no lock on the table. */
+function hasIndex(quotedTable: string, index: string): string {
+  return `SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE i.indrelid = to_regclass('${quotedTable}') AND c.relname = '${index}'`;
+}
+
+/**
+ * The DDL for the store's table. Idempotent: safe to run on every deploy.
+ *
+ * Once the table and its indexes exist, running it again takes no lock on the
+ * table, so an instance that runs it at startup does not hold up claims while
+ * a backup or a long transaction has the table open (issue #54). The column
+ * and indexes are looked up in the catalog first, and the `ALTER TABLE` and
+ * `CREATE INDEX` statements, which lock the table even when they have nothing
+ * to do, run only when something is missing. When they do run (the first
+ * deploy, or an upgrade that adds something), they wait for such a
+ * transaction; run that deploy with a short `lock_timeout`, see the README.
+ *
+ * The text holds a `DO` block, so send it whole: do not split it on `;`.
+ * Sent whole, it is one transaction, and an advisory lock (not a table lock)
+ * keeps two instances that start at once from creating the same thing.
+ */
 export function postgresSchema(table = "holdsend_idempotency"): string {
   const t = quoteTable(table);
   const base = `holdsend_${shortHash(table)}`;
+  // Two instances starting at once would both create what is missing and one
+  // would fail on a catalog unique index; this lock (not a table lock, held
+  // until the end of the text's implicit transaction) makes the second wait.
+  const lockKey = Number.parseInt(shortHash(`holdsend_schema:${table}`), 36) | 0;
   return `
+SELECT pg_advisory_xact_lock(${lockKey});
 CREATE TABLE IF NOT EXISTS ${t} (
   owner         TEXT NOT NULL,
   operation     TEXT NOT NULL,
@@ -102,10 +127,22 @@ CREATE TABLE IF NOT EXISTS ${t} (
   CHECK (state <> 'in_progress' OR (claim_token IS NOT NULL AND claimed_at IS NOT NULL)),
   CHECK (state <> 'completed' OR result_status IS NOT NULL)
 );
-ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS result_headers JSONB;
-CREATE INDEX IF NOT EXISTS "${base}_resource_idx" ON ${t} (owner, operation, resource_ref) WHERE resource_ref IS NOT NULL;
-CREATE INDEX IF NOT EXISTS "${base}_expires_idx" ON ${t} (expires_at) WHERE expires_at IS NOT NULL;
-CREATE INDEX IF NOT EXISTS "${base}_claims_idx" ON ${t} (claimed_at) WHERE state = 'in_progress';
+DO $holdsend$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass('${t}') AND attname = 'result_headers' AND NOT attisdropped) THEN
+    ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS result_headers JSONB;
+  END IF;
+  IF NOT EXISTS (${hasIndex(t, `${base}_resource_idx`)}) THEN
+    CREATE INDEX IF NOT EXISTS "${base}_resource_idx" ON ${t} (owner, operation, resource_ref) WHERE resource_ref IS NOT NULL;
+  END IF;
+  IF NOT EXISTS (${hasIndex(t, `${base}_expires_idx`)}) THEN
+    CREATE INDEX IF NOT EXISTS "${base}_expires_idx" ON ${t} (expires_at) WHERE expires_at IS NOT NULL;
+  END IF;
+  IF NOT EXISTS (${hasIndex(t, `${base}_claims_idx`)}) THEN
+    CREATE INDEX IF NOT EXISTS "${base}_claims_idx" ON ${t} (claimed_at) WHERE state = 'in_progress';
+  END IF;
+END
+$holdsend$;
 `.trim();
 }
 
